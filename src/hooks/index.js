@@ -1,6 +1,23 @@
+// ╔══════════════════════════════════════════════════════════╗
+// ║  ŚCIEŻKA:  src/hooks/index.js                          ║
+// ║  AKCJA:    NADPISZ — POPRAWKA useApi                   ║
+// ║  FIX:      immediate+deps teraz poprawnie re-triggeruje ║
+// ╚══════════════════════════════════════════════════════════╝
+
 import { useState, useEffect, useCallback, useRef } from 'react'
 
 // ── useApi ────────────────────────────────────────────────────────
+//
+// POPRAWKA:
+//   Stary kod: useEffect(() => execute(), [immediate])
+//   Problem:   `immediate` to boolean — nigdy się nie zmienia,
+//              więc execute() nie re-triggerowało się gdy zmieniły
+//              się deps (np. id w OfferDetailPage, userId w MyOffersPage)
+//
+//   Nowy kod:  useEffect(() => execute(), [execute])
+//              execute jest memoizowany przez `deps` (useCallback),
+//              więc zmiana deps → nowe execute → re-fetch ✓
+//
 export function useApi(apiFn, { immediate = false, deps = [] } = {}) {
   const [data,    setData]    = useState(null)
   const [loading, setLoading] = useState(immediate)
@@ -27,9 +44,10 @@ export function useApi(apiFn, { immediate = false, deps = [] } = {}) {
     }
   }, deps) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ← POPRAWKA: reaguj na zmianę execute (= zmianę deps), nie tylko immediate
   useEffect(() => {
     if (immediate) execute()
-  }, [immediate]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [execute]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const reset = useCallback(() => {
     setData(null); setError(null); setLoading(false)
