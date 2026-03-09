@@ -1,26 +1,50 @@
+// ╔══════════════════════════════════════════════════════╗
+// ║  ŚCIEŻKA:  src/components/layout/AppLayout.jsx      ║
+// ║  AKCJA:    NADPISZ istniejący plik                  ║
+// ║  ZMIANA:   Dodano licznik zaaplikowanych w sidebarze ║
+// ╚══════════════════════════════════════════════════════╝
+
+import { useEffect, useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore, useUIStore } from '@/store'
+import { userOffersApi } from '@/api/services'
 import ToastContainer from '@/components/ui/ToastContainer'
 
-const NAV = [
-  { to: '/dashboard', icon: '◈', label: 'Dashboard'   },
-  { to: '/offers',    icon: '◉', label: 'Oferty'       },
-  { to: '/my-offers', icon: '◎', label: 'Moje Oferty'  },
-  { to: '/notes',     icon: '◷', label: 'Notatki'      },
-  { to: '/import',    icon: '⊕', label: 'Import'       },
-  { to: '/stats',     icon: '▦', label: 'Statystyki'   },
+// ── Licznik aplikacji — pobierany raz przy montowaniu ──────────────
+function useAppliedCount(userId) {
+  const [count, setCount] = useState(null)
+  useEffect(() => {
+    if (!userId) return
+    userOffersApi.getApplied(userId)
+      .then((res) => setCount(res.data?.length ?? 0))
+      .catch(() => setCount(null))
+  }, [userId])
+  return count
+}
+
+// ── Definicja nawigacji ───────────────────────────────────────────
+const NAV_TOP = [
+  { to: '/dashboard', icon: '◈', label: 'Dashboard'  },
+  { to: '/offers',    icon: '◉', label: 'Oferty'      },
+  { to: '/my-offers', icon: '◎', label: 'Moje Oferty', showCount: true },
+  { to: '/notes',     icon: '◷', label: 'Notatki'     },
+  { to: '/import',    icon: '⊕', label: 'Import'      },
+  { to: '/stats',     icon: '▦', label: 'Statystyki'  },
 ]
 
+// ─────────────────────────────────────────────────────────────────
 export default function AppLayout() {
-  const { user, logout }             = useAuthStore()
+  const { user, logout }               = useAuthStore()
   const { sidebarOpen, toggleSidebar } = useUIStore()
-  const navigate = useNavigate()
+  const navigate     = useNavigate()
+  const appliedCount = useAppliedCount(user?.id)
 
   const handleLogout = () => { logout(); navigate('/login') }
 
   return (
     <>
       <div className={`app-shell ${sidebarOpen ? 'sb-open' : 'sb-closed'}`}>
+
         {/* ── Sidebar ── */}
         <aside className="sidebar">
           <div className="sb-header">
@@ -32,7 +56,7 @@ export default function AppLayout() {
           </div>
 
           <nav className="sb-nav">
-            {NAV.map(({ to, icon, label }) => (
+            {NAV_TOP.map(({ to, icon, label, showCount }) => (
               <NavLink
                 key={to}
                 to={to}
@@ -40,13 +64,19 @@ export default function AppLayout() {
               >
                 <span className="nav-icon">{icon}</span>
                 {sidebarOpen && <span className="nav-label">{label}</span>}
+                {/* Licznik aplikacji obok "Moje Oferty" */}
+                {showCount && appliedCount !== null && appliedCount > 0 && (
+                  <span className="nav-badge">{appliedCount}</span>
+                )}
               </NavLink>
             ))}
           </nav>
 
           <div className="sb-footer">
-            <NavLink to="/profile"
-              className={({ isActive }) => `nav-item${isActive ? ' nav-item--active' : ''}`}>
+            <NavLink
+              to="/profile"
+              className={({ isActive }) => `nav-item${isActive ? ' nav-item--active' : ''}`}
+            >
               <span className="nav-icon">⊙</span>
               {sidebarOpen && <span className="nav-label">{user?.username ?? 'Profil'}</span>}
             </NavLink>
@@ -62,12 +92,14 @@ export default function AppLayout() {
           <Outlet />
         </main>
       </div>
+
       <ToastContainer />
 
       <style>{`
         .app-shell { display: flex; min-height: 100vh; --sb: 240px; }
         .app-shell.sb-closed { --sb: 60px; }
 
+        /* ── Sidebar ── */
         .sidebar {
           position: fixed; top: 0; left: 0; bottom: 0; width: var(--sb);
           background: var(--bg-1); border-right: 1px solid var(--border-1);
@@ -75,6 +107,7 @@ export default function AppLayout() {
           transition: width var(--t-slow); overflow: hidden; z-index: 100;
         }
 
+        /* Header */
         .sb-header {
           display: flex; align-items: center; gap: 10px;
           padding: 0 14px; min-height: 60px;
@@ -89,7 +122,7 @@ export default function AppLayout() {
         }
         .sb-name {
           font-family: var(--font-display); font-weight: 700;
-          font-size: 0.88rem; color: var(--text-0); white-space: nowrap;
+          font-size: 0.88rem; color: var(--text-0); white-space: nowrap; flex: 1;
         }
         .sb-toggle {
           margin-left: auto; background: none; border: none;
@@ -98,6 +131,7 @@ export default function AppLayout() {
         }
         .sb-toggle:hover { color: var(--accent); }
 
+        /* Nav */
         .sb-nav { flex: 1; padding: 12px 0; overflow-y: auto; overflow-x: hidden; }
 
         .nav-item {
@@ -114,13 +148,24 @@ export default function AppLayout() {
           content: ''; position: absolute;
           left: 0; top: 0; bottom: 0; width: 2px; background: var(--accent);
         }
-        .nav-icon { font-size: 1rem; flex-shrink: 0; width: 20px; text-align: center; }
-        .nav-label { overflow: hidden; text-overflow: ellipsis; }
+        .nav-icon  { font-size: 1rem; flex-shrink: 0; width: 20px; text-align: center; }
+        .nav-label { overflow: hidden; text-overflow: ellipsis; flex: 1; }
 
+        /* Licznik aplikacji w sidebarze */
+        .nav-badge {
+          margin-left: auto;
+          font-family: var(--font-mono); font-size: 0.6rem; font-weight: 700;
+          background: var(--accent); color: #000;
+          padding: 1px 6px; border-radius: 100px;
+          flex-shrink: 0; line-height: 1.5;
+        }
+
+        /* Footer */
         .sb-footer { border-top: 1px solid var(--border-1); padding: 8px 0; }
         .nav-item--logout { color: var(--text-3); }
         .nav-item--logout:hover { color: var(--red); background: rgba(239,68,68,0.07); }
 
+        /* Treść główna */
         .main-content {
           margin-left: var(--sb); flex: 1; min-height: 100vh;
           padding: 32px; transition: margin-left var(--t-slow);
