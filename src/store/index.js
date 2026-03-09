@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 const TOKEN_KEY = 'jwt_token'
-const USER_KEY = 'user_data'
+const USER_KEY  = 'user_data'
 
 export function decodeJwtPayload(token) {
   try {
@@ -29,7 +29,7 @@ export const useAuthStore = create(
   persist(
     (set, get) => ({
       token: null,
-      user: null,
+      user:  null,
       isAuthenticated: false,
 
       setAuth: (token, user) => {
@@ -50,9 +50,8 @@ export const useAuthStore = create(
         })),
 
       rehydrate: () => {
-        const token = localStorage.getItem(TOKEN_KEY)
+        const token   = localStorage.getItem(TOKEN_KEY)
         const userRaw = localStorage.getItem(USER_KEY)
-
         if (token && !isTokenExpired(token) && userRaw) {
           try {
             const user = JSON.parse(userRaw)
@@ -85,17 +84,18 @@ export const useAuthStore = create(
       name: 'ob-auth',
       partialize: (state) => ({
         token: state.token,
-        user: state.user,
+        user:  state.user,
         isAuthenticated: state.isAuthenticated,
       }),
     }
   )
 )
 
+// ── UI Store ──────────────────────────────────────────────────────
 let toastId = 0
 
 export const useUIStore = create((set, get) => ({
-  toasts: [],
+  toasts:      [],
   sidebarOpen: true,
 
   addToast: (message, type = 'info', duration = 4000) => {
@@ -112,15 +112,13 @@ export const useUIStore = create((set, get) => ({
       toasts: state.toasts.filter((t) => t.id !== id),
     })),
 
-  toggleSidebar: () =>
-    set((state) => ({ sidebarOpen: !state.sidebarOpen })),
-
+  toggleSidebar:  () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
   setSidebarOpen: (v) => set({ sidebarOpen: v }),
 }))
 
 export const toast = {
   success: (msg, d) => useUIStore.getState().addToast(msg, 'success', d),
-  error: (msg, d) => useUIStore.getState().addToast(msg, 'error', d),
-  info: (msg, d) => useUIStore.getState().addToast(msg, 'info', d),
-  warn: (msg, d) => useUIStore.getState().addToast(msg, 'warn', d),
+  error:   (msg, d) => useUIStore.getState().addToast(msg, 'error',   d),
+  info:    (msg, d) => useUIStore.getState().addToast(msg, 'info',    d),
+  warn:    (msg, d) => useUIStore.getState().addToast(msg, 'warn',    d),
 }

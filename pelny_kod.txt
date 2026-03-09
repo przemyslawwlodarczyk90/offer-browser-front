@@ -1,0 +1,1583 @@
+--- FILE: ./eslint.config.js ---
+import js from '@eslint/js'
+import globals from 'globals'
+import reactHooks from 'eslint-plugin-react-hooks'
+import reactRefresh from 'eslint-plugin-react-refresh'
+import { defineConfig, globalIgnores } from 'eslint/config'
+
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{js,jsx}'],
+    extends: [
+      js.configs.recommended,
+      reactHooks.configs.flat.recommended,
+      reactRefresh.configs.vite,
+    ],
+    languageOptions: {
+      ecmaVersion: 2020,
+      globals: globals.browser,
+      parserOptions: {
+        ecmaVersion: 'latest',
+        ecmaFeatures: { jsx: true },
+        sourceType: 'module',
+      },
+    },
+    rules: {
+      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+    },
+  },
+])
+
+
+--- FILE: ./index.html ---
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OfferBrowser</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
+
+--- FILE: ./package.json ---
+{
+  "name": "offer-browser-front",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "axios": "^1.13.6",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.13.1",
+    "recharts": "^3.8.0",
+    "zustand": "^5.0.11"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "vite": "^7.3.1"
+  }
+}
+
+
+--- FILE: ./src/api/axios.js ---
+import axios from 'axios'
+
+const api = axios.create({
+  baseURL: '/api',
+  timeout: 15000,
+  headers: { 'Content-Type': 'application/json' },
+})
+
+// Dołącz token JWT do każdego zapytania
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('jwt_token')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
+// Obsługa odpowiedzi
+api.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    const status = err.response?.status
+
+    if (status === 401) {
+      window.dispatchEvent(new Event('auth:expired'))
+    }
+
+    // Normalizuj błąd — wyciągnij message z backendu
+    const message =
+      err.response?.data?.message ??
+      err.response?.data?.error ??
+      err.message ??
+      'Nieznany błąd'
+
+    return Promise.reject({ ...err, message, status })
+  }
+)
+
+export default api
+
+--- FILE: ./src/api/services.js ---
+import api from './axios'
+
+// ── Auth ──────────────────────────────────────────────────────────
+export const authApi = {
+  register: (data)  => api.post('/auth/register', data),
+  login:    (data)  => api.post('/auth/login', data),
+  updateProfile:    (data)  => api.put('/auth/update', data),
+  changePassword:   (data)  => api.post('/auth/change-password', data),
+  confirmRegistration: (token) =>
+    api.get('/v1/registration/confirm', { params: { token } }),
+}
+
+// ── Offers ────────────────────────────────────────────────────────
+export const offersApi = {
+  getAll:   ()           => api.get('/offers'),
+  getById:  (id)         => api.get(`/offers/${id}`),
+  create:   (data)       => api.post('/offers', data),
+  update:   (id, data)   => api.put(`/offers/${id}`, data),
+  delete:   (id)         => api.delete(`/offers/${id}`),
+  markDuplicateById: (id) => api.post(`/offers/${id}/mark-duplicate`),
+}
+
+// ── User Offers ───────────────────────────────────────────────────
+export const userOffersApi = {
+  getNotApplied: (userId) =>
+    api.get('/user-offers/not-applied', { headers: { userId } }),
+  getApplied: (userId) =>
+    api.get('/user-offers/applied', { headers: { userId } }),
+  applyToOffer: (userId, offerId) =>
+    api.post(`/user-offers/${offerId}/apply`, null, { headers: { userId } }),
+}
+
+// ── Application Notes ─────────────────────────────────────────────
+export const notesApi = {
+  getAll:              (userId) => api.get('/application-notes', { params: { userId } }),
+  getCompaniesWithDates:(userId) => api.get('/application-notes/companies-with-dates', { params: { userId } }),
+  createExternal: (userId, companyName, offerUrl) =>
+    api.post('/application-notes/external', null, { params: { userId, companyName, offerUrl } }),
+}
+
+// ── Statistics ────────────────────────────────────────────────────
+export const statsApi = {
+  getTotalOffers:      () => api.get('/statistics/total-offers'),
+  getLevelDistribution:() => api.get('/statistics/level-distribution'),
+  getCityDistribution: () => api.get('/statistics/city-distribution'),
+}
+
+// ── Import ────────────────────────────────────────────────────────
+export const importApi = {
+  runScript:       ()     => api.get('/python-script/run'),
+  importFromJson:  (data) => api.post('/python-script/import', data),
+  importFromUrl:   (url)  => api.post('/python-script/import-from-url', null, { params: { url } }),
+}
+
+--- FILE: ./src/components/layout/Applayout.jsx ---
+import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { useAuthStore, useUIStore } from '@/store'
+import ToastContainer from '@/components/ui/ToastContainer'
+
+const NAV = [
+  { to: '/dashboard', icon: '◈', label: 'Dashboard'   },
+  { to: '/offers',    icon: '◉', label: 'Oferty'       },
+  { to: '/my-offers', icon: '◎', label: 'Moje Oferty'  },
+  { to: '/notes',     icon: '◷', label: 'Notatki'      },
+  { to: '/import',    icon: '⊕', label: 'Import'       },
+  { to: '/stats',     icon: '▦', label: 'Statystyki'   },
+]
+
+export default function AppLayout() {
+  const { user, logout }             = useAuthStore()
+  const { sidebarOpen, toggleSidebar } = useUIStore()
+  const navigate = useNavigate()
+
+  const handleLogout = () => { logout(); navigate('/login') }
+
+  return (
+    <>
+      <div className={`app-shell ${sidebarOpen ? 'sb-open' : 'sb-closed'}`}>
+        {/* ── Sidebar ── */}
+        <aside className="sidebar">
+          <div className="sb-header">
+            <span className="sb-logo">OB</span>
+            {sidebarOpen && <span className="sb-name">OfferBrowser</span>}
+            <button className="sb-toggle" onClick={toggleSidebar} aria-label="Toggle sidebar">
+              {sidebarOpen ? '‹' : '›'}
+            </button>
+          </div>
+
+          <nav className="sb-nav">
+            {NAV.map(({ to, icon, label }) => (
+              <NavLink
+                key={to}
+                to={to}
+                className={({ isActive }) => `nav-item${isActive ? ' nav-item--active' : ''}`}
+              >
+                <span className="nav-icon">{icon}</span>
+                {sidebarOpen && <span className="nav-label">{label}</span>}
+              </NavLink>
+            ))}
+          </nav>
+
+          <div className="sb-footer">
+            <NavLink to="/profile"
+              className={({ isActive }) => `nav-item${isActive ? ' nav-item--active' : ''}`}>
+              <span className="nav-icon">⊙</span>
+              {sidebarOpen && <span className="nav-label">{user?.username ?? 'Profil'}</span>}
+            </NavLink>
+            <button className="nav-item nav-item--logout" onClick={handleLogout}>
+              <span className="nav-icon">⊘</span>
+              {sidebarOpen && <span className="nav-label">Wyloguj</span>}
+            </button>
+          </div>
+        </aside>
+
+        {/* ── Treść ── */}
+        <main className="main-content">
+          <Outlet />
+        </main>
+      </div>
+      <ToastContainer />
+
+      <style>{`
+        .app-shell { display: flex; min-height: 100vh; --sb: 240px; }
+        .app-shell.sb-closed { --sb: 60px; }
+
+        .sidebar {
+          position: fixed; top: 0; left: 0; bottom: 0; width: var(--sb);
+          background: var(--bg-1); border-right: 1px solid var(--border-1);
+          display: flex; flex-direction: column;
+          transition: width var(--t-slow); overflow: hidden; z-index: 100;
+        }
+
+        .sb-header {
+          display: flex; align-items: center; gap: 10px;
+          padding: 0 14px; min-height: 60px;
+          border-bottom: 1px solid var(--border-1);
+        }
+        .sb-logo {
+          font-family: var(--font-display); font-weight: 800; font-size: 1rem;
+          color: var(--accent); background: var(--accent-glow);
+          border: 1px solid var(--border-0); width: 32px; height: 32px;
+          display: flex; align-items: center; justify-content: center;
+          border-radius: var(--radius-sm); flex-shrink: 0;
+        }
+        .sb-name {
+          font-family: var(--font-display); font-weight: 700;
+          font-size: 0.88rem; color: var(--text-0); white-space: nowrap;
+        }
+        .sb-toggle {
+          margin-left: auto; background: none; border: none;
+          color: var(--text-2); cursor: pointer; font-size: 1.1rem;
+          padding: 4px; transition: color var(--t-fast); flex-shrink: 0;
+        }
+        .sb-toggle:hover { color: var(--accent); }
+
+        .sb-nav { flex: 1; padding: 12px 0; overflow-y: auto; overflow-x: hidden; }
+
+        .nav-item {
+          display: flex; align-items: center; gap: 10px;
+          padding: 10px 14px; color: var(--text-2); text-decoration: none;
+          font-size: 0.81rem; font-weight: 500; white-space: nowrap;
+          transition: color var(--t-fast), background var(--t-fast);
+          cursor: pointer; background: none; border: none; width: 100%;
+          text-align: left; position: relative;
+        }
+        .nav-item:hover { color: var(--text-0); background: var(--bg-2); }
+        .nav-item--active { color: var(--accent) !important; background: var(--accent-glow) !important; }
+        .nav-item--active::before {
+          content: ''; position: absolute;
+          left: 0; top: 0; bottom: 0; width: 2px; background: var(--accent);
+        }
+        .nav-icon { font-size: 1rem; flex-shrink: 0; width: 20px; text-align: center; }
+        .nav-label { overflow: hidden; text-overflow: ellipsis; }
+
+        .sb-footer { border-top: 1px solid var(--border-1); padding: 8px 0; }
+        .nav-item--logout { color: var(--text-3); }
+        .nav-item--logout:hover { color: var(--red); background: rgba(239,68,68,0.07); }
+
+        .main-content {
+          margin-left: var(--sb); flex: 1; min-height: 100vh;
+          padding: 32px; transition: margin-left var(--t-slow);
+          background: var(--bg-0);
+        }
+      `}</style>
+    </>
+  )
+}
+
+--- FILE: ./src/components/layout/Authlayout.jsx ---
+import { Outlet } from 'react-router-dom'
+import ToastContainer from '@/components/ui/ToastContainer'
+
+export default function AuthLayout() {
+  return (
+    <>
+      <div className="auth-shell">
+        <div className="bg-grid" aria-hidden="true" />
+        <div className="auth-glow"  aria-hidden="true" />
+
+        <div className="auth-brand">
+          <span className="auth-logo-mark">OB</span>
+          <span className="auth-logo-name">OfferBrowser</span>
+        </div>
+
+        <main className="auth-main">
+          <Outlet />
+        </main>
+      </div>
+      <ToastContainer />
+
+      <style>{`
+        .auth-shell {
+          min-height: 100vh;
+          display: flex; flex-direction: column;
+          align-items: center; justify-content: center;
+          padding: 32px 16px; position: relative; overflow: hidden;
+          background: var(--bg-0);
+        }
+        .auth-glow {
+          position: fixed; top: -20%; left: 50%; transform: translateX(-50%);
+          width: 600px; height: 500px; pointer-events: none; z-index: 0;
+          background: radial-gradient(circle, rgba(245,166,35,0.07) 0%, transparent 65%);
+        }
+        .auth-brand {
+          position: fixed; top: 24px; left: 28px;
+          display: flex; align-items: center; gap: 10px; z-index: 1;
+        }
+        .auth-logo-mark {
+          font-family: var(--font-display); font-weight: 800; font-size: 0.85rem;
+          color: var(--accent); background: var(--accent-glow);
+          border: 1px solid var(--border-0); width: 32px; height: 32px;
+          display: flex; align-items: center; justify-content: center;
+          border-radius: var(--radius-sm);
+        }
+        .auth-logo-name {
+          font-family: var(--font-display); font-weight: 700;
+          font-size: 0.88rem; color: var(--text-1);
+        }
+        .auth-main {
+          position: relative; z-index: 1;
+          width: 100%; max-width: 420px;
+        }
+      `}</style>
+    </>
+  )
+}
+
+--- FILE: ./src/hooks/index.js ---
+import { useState, useEffect, useCallback, useRef } from 'react'
+
+// ── useApi ────────────────────────────────────────────────────────
+export function useApi(apiFn, { immediate = false, deps = [] } = {}) {
+  const [data,    setData]    = useState(null)
+  const [loading, setLoading] = useState(immediate)
+  const [error,   setError]   = useState(null)
+  const mountedRef = useRef(true)
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => { mountedRef.current = false }
+  }, [])
+
+  const execute = useCallback(async (...args) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await apiFn(...args)
+      if (mountedRef.current) setData(res.data)
+      return res.data
+    } catch (err) {
+      if (mountedRef.current) setError(err)
+      throw err
+    } finally {
+      if (mountedRef.current) setLoading(false)
+    }
+  }, deps) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (immediate) execute()
+  }, [immediate]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const reset = useCallback(() => {
+    setData(null); setError(null); setLoading(false)
+  }, [])
+
+  return { data, loading, error, execute, reset }
+}
+
+// ── useDebounce ───────────────────────────────────────────────────
+export function useDebounce(value, delay = 300) {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay)
+    return () => clearTimeout(t)
+  }, [value, delay])
+  return debounced
+}
+
+// ── useTitle ──────────────────────────────────────────────────────
+export function useTitle(title) {
+  useEffect(() => {
+    const prev = document.title
+    document.title = title ? `${title} — OfferBrowser` : 'OfferBrowser'
+    return () => { document.title = prev }
+  }, [title])
+}
+
+--- FILE: ./src/main.jsx ---
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import { RouterProvider } from 'react-router-dom'
+import { router } from '@/router'
+import { useAuthStore } from '@/store'
+
+import '@/styles/globals.css'
+
+useAuthStore.getState().rehydrate()
+
+window.addEventListener('auth:expired', () => {
+  useAuthStore.getState().logout()
+})
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <RouterProvider router={router} />
+  </React.StrictMode>
+)
+
+--- FILE: ./src/pages/auth/authStyles.jsx ---
+export function AuthStyles() {
+  return (
+    <style>{`
+      .auth-card {
+        background: #111;
+        border-radius: 16px;
+        padding: 2rem;
+      }
+
+      .auth-input {
+        width: 100%;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid #333;
+      }
+
+      .auth-btn {
+        margin-top: 1rem;
+        width: 100%;
+        padding: 12px;
+        background: orange;
+        border: none;
+        border-radius: 8px;
+        font-weight: bold;
+        cursor: pointer;
+      }
+    `}</style>
+  )
+}
+
+--- FILE: ./src/pages/auth/ConfirmPage.jsx ---
+import { useSearchParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+
+export default function ConfirmPage() {
+  const [searchParams] = useSearchParams()
+  const token = searchParams.get('token')
+
+  const [status,setStatus] = useState('loading')
+
+  useEffect(()=>{
+    if(!token){
+      setStatus('error')
+      return
+    }
+
+    setTimeout(()=>{
+      setStatus('success')
+    },1000)
+
+  },[token])
+
+  return (
+    <div>
+      {status === 'loading' && <p>Sprawdzanie tokenu...</p>}
+      {status === 'success' && <p>Konto aktywowane</p>}
+      {status === 'error' && <p>Nieprawidłowy token</p>}
+    </div>
+  )
+}
+
+--- FILE: ./src/pages/auth/LoginPage.jsx ---
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useAuthStore } from '@/store'
+import { AuthStyles } from './authStyles'
+
+export default function LoginPage() {
+  const navigate = useNavigate()
+  const setAuth = useAuthStore((s) => s.setAuth)
+
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+
+    const fakeToken = "fake.jwt.token"
+
+    setAuth(fakeToken, { username })
+
+    navigate('/dashboard')
+  }
+
+  return (
+    <div className="auth-card">
+      <h2>Login</h2>
+
+      <form onSubmit={handleSubmit}>
+        <input
+          className="auth-input"
+          placeholder="username"
+          value={username}
+          onChange={(e)=>setUsername(e.target.value)}
+        />
+
+        <input
+          type="password"
+          className="auth-input"
+          placeholder="password"
+          value={password}
+          onChange={(e)=>setPassword(e.target.value)}
+        />
+
+        <button className="auth-btn">Login</button>
+      </form>
+
+      <AuthStyles/>
+    </div>
+  )
+}
+
+--- FILE: ./src/pages/auth/RegisterPage.jsx ---
+export default function RegisterPage() {
+  return (
+    <div>
+      <h1>Register Page</h1>
+    </div>
+  )
+}
+
+--- FILE: ./src/pages/offers/Offersdetailpage.jsx ---
+import { useState } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { offersApi, userOffersApi } from '@/api/services'
+import { useApi, useTitle } from '@/hooks'
+import { useAuthStore, toast } from '@/store'
+import { Badge } from '@/components/ui'
+import { formatDate, formatDateTime, normalizeLevel, formatSalary } from '@/utils'
+
+// ─────────────────────────────────────────────────────────────────
+export default function OfferDetailPage() {
+  const { id }   = useParams()
+  const navigate = useNavigate()
+  const user     = useAuthStore((s) => s.user)
+
+  const { data: offer, loading, error } =
+    useApi(() => offersApi.getById(id), { immediate: true, deps: [id] })
+
+  useTitle(offer?.title ?? 'Szczegóły oferty')
+
+  const [applying, setApplying] = useState(false)
+  const [marking,  setMarking]  = useState(false)
+
+  const handleApply = async () => {
+    if (!user?.id) { toast.warn('Brak ID użytkownika w sesji'); return }
+    setApplying(true)
+    try {
+      await userOffersApi.applyToOffer(user.id, id)
+      toast.success('Aplikacja zapisana!')
+    } catch (err) {
+      toast.error(err?.message ?? 'Błąd zapisu aplikacji')
+    } finally {
+      setApplying(false)
+    }
+  }
+
+  const handleMarkDup = async () => {
+    setMarking(true)
+    try {
+      await offersApi.markDuplicateById(id)
+      toast.info('Oferta oznaczona jako duplikat')
+      navigate(-1)
+    } catch (err) {
+      toast.error(err?.message ?? 'Błąd oznaczania duplikatu')
+    } finally {
+      setMarking(false)
+    }
+  }
+
+  /* ── Loading ── */
+  if (loading) return <DetailSkeleton />
+
+  /* ── Błąd ── */
+  if (error || !offer) return (
+    <div className="detail-page animate-fade-in">
+      <button className="detail-back" onClick={() => navigate(-1)}>← Wróć</button>
+      <div className="detail-err">
+        <span style={{ fontSize: '2.2rem' }}>✕</span>
+        <p>{error?.message ?? 'Nie znaleziono oferty.'}</p>
+      </div>
+    </div>
+  )
+
+  const level  = normalizeLevel(offer.level)
+  const salary = formatSalary(offer.salary)
+
+  return (
+    <div className="detail-page animate-fade-in">
+      {/* ── Nawigacja + akcje ── */}
+      <div className="detail-nav">
+        <button className="detail-back" onClick={() => navigate(-1)}>← Oferty</button>
+        <div className="detail-actions">
+          <button
+            className="btn btn--danger btn--sm"
+            onClick={handleMarkDup}
+            disabled={marking || offer.duplicate}
+            title={offer.duplicate ? 'Już oznaczono' : 'Oznacz jako duplikat'}
+          >
+            {marking ? '…' : '⊗ Duplikat'}
+          </button>
+          <button className="btn btn--primary btn--sm" onClick={handleApply} disabled={applying}>
+            {applying ? '…' : '✓ Aplikuj'}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Hero ── */}
+      <div className="detail-hero">
+        <div className="detail-hero-left">
+          <div className="detail-badges">
+            <Badge level={level} />
+            {offer.duplicate && (
+              <span className="detail-dup-tag">DUPLIKAT</span>
+            )}
+          </div>
+          <h1 className="detail-title">{offer.title}</h1>
+          <p  className="detail-company">{offer.companyName ?? '—'}</p>
+        </div>
+        {salary && (
+          <div className="detail-salary">{salary}</div>
+        )}
+      </div>
+
+      {/* ── Meta grid ── */}
+      <div className="detail-meta">
+        <MetaBox icon="◎" label="Miasto"         value={offer.city ?? '—'} />
+        <MetaBox icon="⊙" label="Poziom"         value={level} />
+        <MetaBox icon="◷" label="Dodano"          value={formatDate(offer.createdAt ?? offer.fetchedAt)} />
+        <MetaBox icon="◈" label="Aktualizacja"   value={formatDateTime(offer.updatedAt)} />
+        {offer.offerUrl && (
+          <div className="meta-box meta-box--wide">
+            <span className="meta-label">Źródło</span>
+            <a href={offer.offerUrl} target="_blank" rel="noopener noreferrer" className="meta-link">
+              {offer.offerUrl}
+            </a>
+          </div>
+        )}
+      </div>
+
+      {/* ── Opis ── */}
+      {offer.description && (
+        <section className="detail-section">
+          <h2 className="detail-section-h">Opis oferty</h2>
+          <div className="detail-desc">
+            {offer.description.split('\n').map((line, i) =>
+              line.trim()
+                ? <p key={i} style={{ margin: '0 0 .55rem' }}>{line}</p>
+                : <br key={i} />
+            )}
+          </div>
+        </section>
+      )}
+
+      <DetailStyles />
+    </div>
+  )
+}
+
+function MetaBox({ icon, label, value }) {
+  return (
+    <div className="meta-box">
+      <span className="meta-label">{icon} {label}</span>
+      <span className="meta-value">{value}</span>
+    </div>
+  )
+}
+
+function DetailSkeleton() {
+  return (
+    <div className="detail-page animate-fade-in">
+      {[140, 100, 36, 36, 36, 200].map((h, i) => (
+        <div key={i} className="d-skel" style={{ height: h, marginBottom: 12, animationDelay: `${i * 60}ms` }} />
+      ))}
+      <style>{`
+        .d-skel {
+          border-radius: var(--radius-md);
+          background: linear-gradient(90deg, var(--bg-2) 25%, var(--bg-3) 50%, var(--bg-2) 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.5s ease infinite;
+        }
+      `}</style>
+    </div>
+  )
+}
+
+function DetailStyles() {
+  return (
+    <style>{`
+      .detail-page { max-width: 820px; }
+
+      /* Nawigacja */
+      .detail-nav {
+        display: flex; align-items: center;
+        justify-content: space-between; gap: 12px;
+        margin-bottom: 24px; flex-wrap: wrap;
+      }
+      .detail-back {
+        background: none; border: none; color: var(--text-2);
+        font-family: var(--font-mono); font-size: 0.78rem; cursor: pointer;
+        padding: 0; transition: color .15s;
+      }
+      .detail-back:hover { color: var(--accent); }
+      .detail-actions { display: flex; gap: 8px; }
+
+      /* Hero */
+      .detail-hero {
+        display: flex; justify-content: space-between;
+        align-items: flex-start; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;
+      }
+      .detail-hero-left { flex: 1; }
+      .detail-badges { display: flex; align-items: center; gap: 7px; margin-bottom: 10px; }
+      .detail-dup-tag {
+        font-family: var(--font-mono); font-size: 0.6rem; font-weight: 700;
+        letter-spacing: .1em; color: var(--red);
+        border: 1px solid rgba(239,68,68,.4); padding: 2px 7px;
+        border-radius: var(--radius-sm);
+      }
+      .detail-title {
+        font-family: var(--font-display); font-weight: 800;
+        font-size: 1.6rem; color: var(--text-0);
+        line-height: 1.25; margin: 0 0 6px;
+      }
+      .detail-company { font-size: 0.88rem; color: var(--text-2); margin: 0; }
+      .detail-salary {
+        font-family: var(--font-mono); font-size: 1rem; font-weight: 700;
+        color: var(--cyan); padding: 10px 16px;
+        background: rgba(0,212,212,.07);
+        border: 1px solid rgba(0,212,212,.25);
+        border-radius: var(--radius-lg); white-space: nowrap; align-self: flex-start;
+      }
+
+      /* Meta */
+      .detail-meta {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+        gap: 8px; margin-bottom: 24px;
+      }
+      .meta-box {
+        background: var(--bg-2); border: 1px solid var(--border-1);
+        border-radius: var(--radius-md); padding: 10px 12px;
+        display: flex; flex-direction: column; gap: 4px;
+      }
+      .meta-box--wide { grid-column: 1 / -1; }
+      .meta-label {
+        font-size: 0.64rem; color: var(--text-3);
+        text-transform: uppercase; letter-spacing: .07em; font-weight: 600;
+      }
+      .meta-value { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-0); }
+      .meta-link  {
+        font-family: var(--font-mono); font-size: 0.74rem; color: var(--accent);
+        text-decoration: none; word-break: break-all;
+      }
+      .meta-link:hover { text-decoration: underline; }
+
+      /* Opis */
+      .detail-section  { margin-bottom: 20px; }
+      .detail-section-h {
+        font-family: var(--font-display); font-size: 0.85rem; font-weight: 700;
+        color: var(--text-1); text-transform: uppercase; letter-spacing: .08em;
+        margin-bottom: 10px; padding-bottom: 8px;
+        border-bottom: 1px solid var(--border-1);
+      }
+      .detail-desc {
+        font-size: 0.83rem; color: var(--text-1); line-height: 1.7;
+        background: var(--bg-1); border: 1px solid var(--border-1);
+        border-radius: var(--radius-md); padding: 14px 16px;
+      }
+
+      /* Error */
+      .detail-err {
+        display: flex; flex-direction: column;
+        align-items: center; gap: 12px;
+        padding: 48px 24px; color: var(--text-2); text-align: center;
+      }
+    `}</style>
+  )
+}
+
+--- FILE: ./src/pages/offers/Offerspage.jsx ---
+import { useState, useMemo, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { offersApi } from '@/api/services'
+import { useApi, useDebounce, useTitle } from '@/hooks'
+import { Badge, EmptyState, PageHeader } from '@/components/ui'
+import { formatDate, normalizeLevel, truncate, sortByDate, formatSalary } from '@/utils'
+
+const SORT_OPTS = [
+  { value: 'newest', label: '↓ Najnowsze' },
+  { value: 'oldest', label: '↑ Najstarsze' },
+]
+
+const LEVELS = ['Wszystkie', 'Trainee', 'Junior', 'Mid', 'Senior', 'Expert']
+
+// Backend może zwracać różne pola daty — sprawdzamy po kolei
+const DATE_KEYS = ['createdAt', 'fetchedAt', 'updatedAt']
+
+function getDate(offer) {
+  for (const k of DATE_KEYS) if (offer[k]) return offer[k]
+  return null
+}
+
+// ─────────────────────────────────────────────────────────────────
+export default function OffersPage() {
+  useTitle('Oferty pracy')
+  const navigate = useNavigate()
+
+  const { data: raw, loading, error, execute: reload } =
+    useApi(offersApi.getAll, { immediate: true })
+
+  const [search, setSearch] = useState('')
+  const [sort,   setSort]   = useState('newest')
+  const [level,  setLevel]  = useState('Wszystkie')
+  const q = useDebounce(search, 280)
+
+  const offers = useMemo(() => {
+    let list = raw ?? []
+    if (level !== 'Wszystkie')
+      list = list.filter(o => normalizeLevel(o.level) === level)
+    if (q.trim()) {
+      const lq = q.toLowerCase()
+      list = list.filter(o =>
+        o.title?.toLowerCase().includes(lq) ||
+        o.companyName?.toLowerCase().includes(lq) ||
+        o.city?.toLowerCase().includes(lq)
+      )
+    }
+    // Wybierz klucz daty który faktycznie istnieje w danych
+    const dateKey = DATE_KEYS.find(k => list.some(o => o[k])) ?? 'createdAt'
+    return sortByDate(list, dateKey, sort === 'newest' ? 'desc' : 'asc')
+  }, [raw, level, q, sort])
+
+  const goToDetail = useCallback((id) => navigate(`/offers/${id}`), [navigate])
+
+  const isFiltered = q.trim() !== '' || level !== 'Wszystkie'
+
+  return (
+    <div className="offers-page">
+      <PageHeader
+        title="Oferty pracy"
+        subtitle={raw ? `${raw.length} ofert w bazie` : ''}
+        actions={
+          <button className="btn btn--secondary btn--sm" onClick={reload} disabled={loading}>
+            ↻ Odśwież
+          </button>
+        }
+      />
+
+      {/* ── Toolbar ── */}
+      <div className="of-toolbar">
+        <div className="of-search-wrap">
+          <span className="of-search-ico" aria-hidden="true">⊘</span>
+          <input
+            className="of-search"
+            type="search"
+            placeholder="Szukaj po tytule, firmie, mieście…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          {search && (
+            <button className="of-clear" onClick={() => setSearch('')} aria-label="Wyczyść">✕</button>
+          )}
+        </div>
+        <select className="of-select" value={sort} onChange={e => setSort(e.target.value)}>
+          {SORT_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      </div>
+
+      {/* ── Level pills ── */}
+      <div className="of-levels">
+        {LEVELS.map(l => (
+          <button
+            key={l}
+            className={`of-pill${level === l ? ' of-pill--on' : ''}`}
+            onClick={() => setLevel(l)}
+          >
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Licznik ── */}
+      {!loading && !error && raw && (
+        <p className="of-count">
+          <strong>{offers.length}</strong>
+          {isFiltered ? ` z ${raw.length}` : ''} ofert
+        </p>
+      )}
+
+      {/* ── Skeleton ── */}
+      {loading && (
+        <div className="of-grid">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} className="of-skel" style={{ animationDelay: `${i * 35}ms` }} />
+          ))}
+        </div>
+      )}
+
+      {/* ── Błąd ── */}
+      {!loading && error && (
+        <EmptyState
+          icon="✕"
+          title="Błąd ładowania ofert"
+          description={error.message ?? 'Nie udało się połączyć z serwerem.'}
+          action={<button className="btn btn--primary btn--sm" onClick={reload}>Spróbuj ponownie</button>}
+        />
+      )}
+
+      {/* ── Pusta lista ── */}
+      {!loading && !error && offers.length === 0 && (
+        <EmptyState
+          icon="⊘"
+          title="Brak ofert"
+          description={isFiltered
+            ? 'Żadna oferta nie pasuje do wybranych kryteriów.'
+            : 'Baza jest pusta — zaimportuj dane przez moduł Import.'}
+          action={isFiltered
+            ? <button className="btn btn--ghost btn--sm"
+                onClick={() => { setSearch(''); setLevel('Wszystkie') }}>
+                Wyczyść filtry
+              </button>
+            : null
+          }
+        />
+      )}
+
+      {/* ── Siatka kart ── */}
+      {!loading && !error && offers.length > 0 && (
+        <div className="of-grid">
+          {offers.map((offer, i) => (
+            <OfferCard
+              key={offer.id}
+              offer={offer}
+              onClick={() => goToDetail(offer.id)}
+              style={{ animationDelay: `${Math.min(i * 28, 400)}ms` }}
+            />
+          ))}
+        </div>
+      )}
+
+      <OffersStyles />
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Karta oferty
+// ─────────────────────────────────────────────────────────────────
+function OfferCard({ offer, onClick, style }) {
+  const level  = normalizeLevel(offer.level)
+  const salary = formatSalary(offer.salary)
+  const date   = getDate(offer)
+
+  return (
+    <article
+      className={`of-card animate-fade-in${offer.duplicate ? ' of-card--dup' : ''}`}
+      onClick={onClick}
+      style={style}
+      tabIndex={0}
+      role="button"
+      onKeyDown={e => e.key === 'Enter' && onClick()}
+    >
+      {/* badge + duplikat */}
+      <div className="of-card-top">
+        <Badge level={level} />
+        {offer.duplicate && <span className="of-dup">DUPLIKAT</span>}
+      </div>
+
+      {/* tytuł */}
+      <h3 className="of-card-title">{truncate(offer.title, 72)}</h3>
+
+      {/* firma */}
+      <p className="of-card-company">
+        <span aria-hidden="true" style={{ color: 'var(--text-3)', fontSize: '.72rem' }}>◉</span>
+        {offer.companyName ?? '—'}
+      </p>
+
+      {/* lokalizacja + wynagrodzenie */}
+      <div className="of-chips">
+        {offer.city && (
+          <span className="of-chip">◎ {offer.city}</span>
+        )}
+        {salary && (
+          <span className="of-chip of-chip--salary">₿ {salary}</span>
+        )}
+      </div>
+
+      {/* stopka */}
+      <div className="of-card-foot">
+        <time className="of-card-date">{formatDate(date)}</time>
+        <span className="of-card-arrow" aria-hidden="true">→</span>
+      </div>
+    </article>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Style
+// ─────────────────────────────────────────────────────────────────
+function OffersStyles() {
+  return (
+    <style>{`
+      .offers-page { max-width: 1080px; }
+
+      /* Toolbar */
+      .of-toolbar {
+        display: flex; gap: 8px; align-items: center;
+        margin-bottom: 10px; flex-wrap: wrap;
+      }
+      .of-search-wrap { position: relative; flex: 1; min-width: 200px; }
+      .of-search-ico  {
+        position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+        color: var(--text-3); font-size: 0.82rem; pointer-events: none;
+      }
+      .of-search {
+        width: 100%; padding: 8px 34px 8px 32px;
+        background: var(--bg-2); border: 1px solid var(--border-1);
+        border-radius: var(--radius-md); font-family: var(--font-mono);
+        font-size: 0.81rem; color: var(--text-0); outline: none;
+        transition: border-color .15s, box-shadow .15s;
+      }
+      .of-search::placeholder { color: var(--text-3); }
+      .of-search::-webkit-search-cancel-button { display: none; }
+      .of-search:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+      .of-clear {
+        position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+        background: none; border: none; color: var(--text-3); cursor: pointer;
+        font-size: 0.68rem; padding: 2px; transition: color .15s;
+      }
+      .of-clear:hover { color: var(--text-0); }
+      .of-select {
+        background: var(--bg-2); border: 1px solid var(--border-1);
+        border-radius: var(--radius-md); padding: 8px 12px;
+        font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-1);
+        outline: none; cursor: pointer; flex-shrink: 0;
+        transition: border-color .15s;
+      }
+      .of-select:focus { border-color: var(--accent); }
+
+      /* Level pills */
+      .of-levels { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 16px; }
+      .of-pill {
+        padding: 4px 13px; border-radius: 100px;
+        border: 1px solid var(--border-1); background: var(--bg-2);
+        color: var(--text-2); font-family: var(--font-mono); font-size: 0.7rem;
+        cursor: pointer; transition: border-color .15s, color .15s, background .15s;
+        white-space: nowrap;
+      }
+      .of-pill:hover { border-color: var(--accent); color: var(--accent); }
+      .of-pill--on   { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 700; }
+
+      /* Licznik */
+      .of-count { font-size: 0.73rem; color: var(--text-2); margin-bottom: 14px; }
+      .of-count strong { color: var(--text-0); }
+
+      /* Siatka */
+      .of-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(288px, 1fr));
+        gap: 12px;
+      }
+
+      /* Karta */
+      .of-card {
+        display: flex; flex-direction: column; gap: 7px;
+        background: var(--bg-1); border: 1px solid var(--border-1);
+        border-radius: var(--radius-lg); padding: 1.05rem 1.1rem;
+        cursor: pointer; outline: none;
+        transition: border-color .15s, transform .15s, box-shadow .15s;
+      }
+      .of-card:hover,
+      .of-card:focus-visible {
+        border-color: var(--accent);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-accent);
+      }
+      .of-card--dup { opacity: .5; }
+      .of-card--dup:hover { opacity: .72; }
+
+      .of-card-top {
+        display: flex; align-items: center;
+        justify-content: space-between; gap: 6px;
+      }
+      .of-dup {
+        font-family: var(--font-mono); font-size: 0.58rem; font-weight: 700;
+        letter-spacing: .09em; color: var(--red);
+        border: 1px solid rgba(239,68,68,.35); padding: 2px 6px;
+        border-radius: var(--radius-sm);
+      }
+      .of-card-title {
+        font-family: var(--font-display); font-weight: 700;
+        font-size: 0.89rem; color: var(--text-0); line-height: 1.35; margin: 0;
+        display: -webkit-box; -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical; overflow: hidden;
+      }
+      .of-card-company {
+        display: flex; align-items: center; gap: 5px;
+        font-size: 0.77rem; color: var(--text-2); margin: 0;
+      }
+      .of-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+      .of-chip {
+        display: flex; align-items: center; gap: 4px;
+        font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-2);
+        background: var(--bg-2); border: 1px solid var(--border-1);
+        padding: 3px 8px; border-radius: var(--radius-sm);
+      }
+      .of-chip--salary {
+        color: var(--cyan); border-color: rgba(0,212,212,.2);
+        background: rgba(0,212,212,.05);
+      }
+      .of-card-foot {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-top: auto; padding-top: 8px; border-top: 1px solid var(--border-1);
+      }
+      .of-card-date  { font-family: var(--font-mono); font-size: 0.66rem; color: var(--text-3); }
+      .of-card-arrow { font-size: 0.78rem; color: var(--text-3); transition: color .15s, transform .15s; }
+      .of-card:hover  .of-card-arrow,
+      .of-card:focus-visible .of-card-arrow { color: var(--accent); transform: translateX(4px); }
+
+      /* Skeleton */
+      .of-skel {
+        height: 150px; border-radius: var(--radius-lg);
+        background: linear-gradient(90deg, var(--bg-2) 25%, var(--bg-3) 50%, var(--bg-2) 75%);
+        background-size: 200% 100%;
+        animation: shimmer 1.5s ease infinite;
+      }
+    `}</style>
+  )
+}
+
+--- FILE: ./src/router/index.jsx ---
+import { lazy, Suspense } from 'react'
+import { createBrowserRouter, Navigate } from 'react-router-dom'
+import { useAuthStore } from '@/store'
+import AppLayout    from '@/components/layout/AppLayout'
+import AuthLayout   from '@/components/layout/AuthLayout'
+import PageLoader   from '@/components/ui/PageLoader'
+
+// Auth
+const LoginPage    = lazy(() => import('@/pages/auth/LoginPage'))
+const RegisterPage = lazy(() => import('@/pages/auth/RegisterPage'))
+const ConfirmPage  = lazy(() => import('@/pages/auth/ConfirmPage'))
+
+// Oferty (Blok 3)
+const OffersPage      = lazy(() => import('@/pages/offers/OffersPage'))
+const OfferDetailPage = lazy(() => import('@/pages/offers/OfferDetailPage'))
+
+// Pozostałe — proste stuby do czasu implementacji
+const DashboardPage = lazy(() => import('@/pages/DashboardPage'))
+const MyOffersPage  = lazy(() => import('@/pages/MyOffersPage'))
+const ImportPage    = lazy(() => import('@/pages/ImportPage'))
+const NotesPage     = lazy(() => import('@/pages/NotesPage'))
+const StatsPage     = lazy(() => import('@/pages/StatsPage'))
+const ProfilePage   = lazy(() => import('@/pages/ProfilePage'))
+
+// ── Guards ────────────────────────────────────────────────────────
+export function PrivateRoute({ children }) {
+  const ok = useAuthStore((s) => s.isAuthenticated)
+  if (!ok) return <Navigate to="/login" replace />
+  return children
+}
+
+export function GuestRoute({ children }) {
+  const ok = useAuthStore((s) => s.isAuthenticated)
+  if (ok) return <Navigate to="/dashboard" replace />
+  return children
+}
+
+const S = ({ children }) => <Suspense fallback={<PageLoader />}>{children}</Suspense>
+
+export const router = createBrowserRouter([
+  // ── Publiczne (auth)
+  {
+    element: <AuthLayout />,
+    children: [
+      { path: '/login',    element: <GuestRoute><S><LoginPage /></S></GuestRoute> },
+      { path: '/register', element: <GuestRoute><S><RegisterPage /></S></GuestRoute> },
+      { path: '/confirm',  element: <S><ConfirmPage /></S> },
+    ],
+  },
+  // ── Chronione (app)
+  {
+    element: <PrivateRoute><AppLayout /></PrivateRoute>,
+    children: [
+      { index: true,         element: <Navigate to="/dashboard" replace /> },
+      { path: '/dashboard',  element: <S><DashboardPage /></S> },
+      { path: '/offers',     element: <S><OffersPage /></S> },
+      { path: '/offers/:id', element: <S><OfferDetailPage /></S> },
+      { path: '/my-offers',  element: <S><MyOffersPage /></S> },
+      { path: '/import',     element: <S><ImportPage /></S> },
+      { path: '/notes',      element: <S><NotesPage /></S> },
+      { path: '/stats',      element: <S><StatsPage /></S> },
+      { path: '/profile',    element: <S><ProfilePage /></S> },
+    ],
+  },
+  { path: '*', element: <Navigate to="/dashboard" replace /> },
+])
+
+--- FILE: ./src/store/index.js ---
+// ╔══════════════════════════════════════════════════╗
+// ║  WKLEJ DO:  src/store/index.js                  ║
+// ║  (plik już istnieje w projekcie — NADPISZ)       ║
+// ╚══════════════════════════════════════════════════╝
+
+import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+
+const TOKEN_KEY = 'jwt_token'
+const USER_KEY  = 'user_data'
+
+export function decodeJwtPayload(token) {
+  try {
+    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+    return JSON.parse(atob(base64))
+  } catch {
+    return null
+  }
+}
+
+export function isTokenExpired(token) {
+  const payload = decodeJwtPayload(token)
+  if (!payload?.exp) return true
+  return payload.exp * 1000 < Date.now() + 10000
+}
+
+export function getTokenExpiresAt(token) {
+  const payload = decodeJwtPayload(token)
+  if (!payload?.exp) return null
+  return new Date(payload.exp * 1000)
+}
+
+export const useAuthStore = create(
+  persist(
+    (set, get) => ({
+      token: null,
+      user:  null,
+      isAuthenticated: false,
+
+      setAuth: (token, user) => {
+        localStorage.setItem(TOKEN_KEY, token)
+        localStorage.setItem(USER_KEY, JSON.stringify(user))
+        set({ token, user, isAuthenticated: true })
+      },
+
+      logout: () => {
+        localStorage.removeItem(TOKEN_KEY)
+        localStorage.removeItem(USER_KEY)
+        set({ token: null, user: null, isAuthenticated: false })
+      },
+
+      updateUser: (updates) =>
+        set((state) => ({
+          user: state.user ? { ...state.user, ...updates } : null,
+        })),
+
+      rehydrate: () => {
+        const token   = localStorage.getItem(TOKEN_KEY)
+        const userRaw = localStorage.getItem(USER_KEY)
+        if (token && !isTokenExpired(token) && userRaw) {
+          try {
+            const user = JSON.parse(userRaw)
+            set({ token, user, isAuthenticated: true })
+          } catch {
+            get().logout()
+          }
+        } else {
+          localStorage.removeItem(TOKEN_KEY)
+          localStorage.removeItem(USER_KEY)
+          set({ token: null, user: null, isAuthenticated: false })
+        }
+      },
+
+      checkExpiry: () => {
+        const { token } = get()
+        if (token && isTokenExpired(token)) {
+          get().logout()
+          return false
+        }
+        return true
+      },
+
+      getExpiresAt: () => {
+        const { token } = get()
+        return token ? getTokenExpiresAt(token) : null
+      },
+    }),
+    {
+      name: 'ob-auth',
+      partialize: (state) => ({
+        token: state.token,
+        user:  state.user,
+        isAuthenticated: state.isAuthenticated,
+      }),
+    }
+  )
+)
+
+// ── UI Store ──────────────────────────────────────────────────────
+let toastId = 0
+
+export const useUIStore = create((set, get) => ({
+  toasts:      [],
+  sidebarOpen: true,
+
+  addToast: (message, type = 'info', duration = 4000) => {
+    const id = ++toastId
+    set((state) => ({
+      toasts: [...state.toasts, { id, message, type, duration }],
+    }))
+    if (duration > 0) setTimeout(() => get().removeToast(id), duration)
+    return id
+  },
+
+  removeToast: (id) =>
+    set((state) => ({
+      toasts: state.toasts.filter((t) => t.id !== id),
+    })),
+
+  toggleSidebar:  () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+  setSidebarOpen: (v) => set({ sidebarOpen: v }),
+}))
+
+export const toast = {
+  success: (msg, d) => useUIStore.getState().addToast(msg, 'success', d),
+  error:   (msg, d) => useUIStore.getState().addToast(msg, 'error',   d),
+  info:    (msg, d) => useUIStore.getState().addToast(msg, 'info',    d),
+  warn:    (msg, d) => useUIStore.getState().addToast(msg, 'warn',    d),
+}
+
+--- FILE: ./src/styles/globals.css ---
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  /* Tło */
+  --bg-0: #0a0a0f;
+  --bg-1: #0f0f17;
+  --bg-2: #16161f;
+  --bg-3: #1e1e2a;
+  --bg-4: #252535;
+
+  /* Akcenty */
+  --accent:            #f5a623;
+  --accent-dim:        #c47d0e;
+  --accent-glow:       rgba(245, 166, 35, 0.15);
+  --accent-glow-strong:rgba(245, 166, 35, 0.30);
+
+  /* Kolory semantyczne */
+  --cyan:   #00d4d4;
+  --cyan-dim: #007f7f;
+  --cyan-glow: rgba(0, 212, 212, 0.12);
+  --green:  #22c55e;
+  --red:    #ef4444;
+  --yellow: #eab308;
+
+  /* Tekst */
+  --text-0: #f5f5f5;
+  --text-1: #b0b0c8;
+  --text-2: #70708a;
+  --text-3: #40405a;
+
+  /* Ramki */
+  --border-0: rgba(245, 166, 35, 0.20);
+  --border-1: rgba(255, 255, 255, 0.06);
+  --border-2: rgba(255, 255, 255, 0.03);
+
+  /* Fonty */
+  --font-display: 'Syne', sans-serif;
+  --font-mono:    'JetBrains Mono', monospace;
+
+  /* Odstępy */
+  --space-1: 4px;  --space-2: 8px;   --space-3: 12px;
+  --space-4: 16px; --space-5: 24px;  --space-6: 32px;
+  --space-7: 48px; --space-8: 64px;
+
+  /* Zaokrąglenia */
+  --radius-sm: 4px; --radius-md: 8px;
+  --radius-lg: 12px; --radius-xl: 20px;
+
+  /* Przejścia */
+  --t-fast: 120ms ease;
+  --t-mid:  200ms ease;
+  --t-slow: 350ms ease;
+
+  /* Cienie */
+  --shadow-sm:     0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md:     0 4px 16px rgba(0,0,0,0.5);
+  --shadow-lg:     0 8px 32px rgba(0,0,0,0.6);
+  --shadow-accent: 0 0 20px rgba(245,166,35,0.2);
+  --shadow-cyan:   0 0 20px rgba(0,212,212,0.15);
+
+  /* Layout */
+  --sidebar-width: 240px;
+}
+
+html, body, #root {
+  min-height: 100vh;
+  font-family: var(--font-display);
+  background: var(--bg-0);
+  color: var(--text-0);
+  line-height: 1.5;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; text-decoration: none; }
+button, input, textarea, select { font: inherit; }
+img, svg { display: block; }
+h1,h2,h3,h4,h5,h6 { font-family: var(--font-display); }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar       { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-1); }
+::-webkit-scrollbar-thumb { background: var(--bg-4); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+
+/* ── Animacje ── */
+@keyframes fadeIn    { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+@keyframes slideRight{ from { opacity:0; transform:translateX(-8px); } to { opacity:1; transform:none; } }
+@keyframes spin      { to { transform: rotate(360deg); } }
+@keyframes shimmer   { 0%,100% { background-position: 200% 0; } 50% { background-position: -200% 0; } }
+
+.animate-fade-in  { animation: fadeIn   0.3s ease both; }
+.animate-slide-in { animation: slideRight 0.25s ease both; }
+
+/* ── Tło siatki (auth layout) ── */
+.bg-grid {
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background-image:
+    linear-gradient(var(--border-1) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border-1) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+--- FILE: ./src/utils/index.js ---
+import { format, parseISO, formatDistanceToNow } from 'date-fns'
+import { pl } from 'date-fns/locale'
+
+// ── Daty ──────────────────────────────────────────────────────────
+export function formatDate(dateStr) {
+  if (!dateStr) return '—'
+  try { return format(parseISO(dateStr), 'dd.MM.yyyy', { locale: pl }) }
+  catch { return dateStr }
+}
+
+export function formatDateTime(dateStr) {
+  if (!dateStr) return '—'
+  try { return format(parseISO(dateStr), 'dd.MM.yyyy HH:mm', { locale: pl }) }
+  catch { return dateStr }
+}
+
+export function timeAgo(dateStr) {
+  if (!dateStr) return '—'
+  try { return formatDistanceToNow(parseISO(dateStr), { addSuffix: true, locale: pl }) }
+  catch { return dateStr }
+}
+
+// ── Tekst ─────────────────────────────────────────────────────────
+export function truncate(str, len = 120) {
+  if (!str) return ''
+  return str.length <= len ? str : str.slice(0, len) + '…'
+}
+
+// ── Poziom ───────────────────────────────────────────────────────
+export function normalizeLevel(level) {
+  const map = {
+    junior: 'Junior', mid: 'Mid', senior: 'Senior',
+    expert: 'Expert', trainee: 'Trainee',
+  }
+  return map[(level || '').toLowerCase()] ?? level ?? '—'
+}
+
+// ── Wynagrodzenie ────────────────────────────────────────────────
+export function formatSalary(salary) {
+  if (!salary || salary === 'Brak wynagrodzenia') return null
+  return salary
+}
+
+// ── Sortowanie ───────────────────────────────────────────────────
+// key  — nazwa pola daty, np. 'createdAt'
+// dir  — 'desc' (najnowsze) | 'asc' (najstarsze)
+export function sortByDate(list, key = 'createdAt', dir = 'desc') {
+  return [...list].sort((a, b) => {
+    const da = a[key] ? new Date(a[key]) : 0
+    const db = b[key] ? new Date(b[key]) : 0
+    return dir === 'desc' ? db - da : da - db
+  })
+}
+
+
+
+
+
+
+
+
+--- FILE: ./vite.config.js ---
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import path from 'path'
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
+  server: {
+    port: 3000,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8081',
+        changeOrigin: true,
+      },
+    },
+  },
+})
+
