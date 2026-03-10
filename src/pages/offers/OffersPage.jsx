@@ -41,7 +41,7 @@ export default function OffersPage() {
       const lq = q.toLowerCase()
       list = list.filter(o =>
         o.title?.toLowerCase().includes(lq) ||
-        o.companyName?.toLowerCase().includes(lq) ||
+        (o.companyName ?? o.company)?.toLowerCase().includes(lq) ||
         o.city?.toLowerCase().includes(lq)
       )
     }
@@ -168,12 +168,17 @@ export default function OffersPage() {
 // ─────────────────────────────────────────────────────────────────
 function OfferCard({ offer, onClick, style }) {
   const level  = normalizeLevel(offer.level)
-  const salary = formatSalary(offer.salary)
+  // Backend zwraca salaryRange (snake_case → camelCase przez Spring)
+  const salary = formatSalary(offer.salaryRange ?? offer.salary)
   const date   = getDate(offer)
+  // Backend: is_duplicate → isDuplicate (Spring camelCase), company → company
+  const isDup  = offer.isDuplicate ?? offer.duplicate ?? false
+  // Backend zwraca "company" nie "companyName"
+  const company = offer.companyName ?? offer.company ?? '—'
 
   return (
     <article
-      className={`of-card animate-fade-in${offer.duplicate ? ' of-card--dup' : ''}`}
+      className={`of-card animate-fade-in${isDup ? ' of-card--dup' : ''}`}
       onClick={onClick}
       style={style}
       tabIndex={0}
@@ -183,7 +188,7 @@ function OfferCard({ offer, onClick, style }) {
       {/* badge + duplikat */}
       <div className="of-card-top">
         <Badge level={level} />
-        {offer.duplicate && <span className="of-dup">DUPLIKAT</span>}
+        {isDup && <span className="of-dup">DUPLIKAT</span>}
       </div>
 
       {/* tytuł */}
@@ -192,7 +197,7 @@ function OfferCard({ offer, onClick, style }) {
       {/* firma */}
       <p className="of-card-company">
         <span aria-hidden="true" style={{ color: 'var(--text-3)', fontSize: '.72rem' }}>◉</span>
-        {offer.companyName ?? '—'}
+        {company}
       </p>
 
       {/* lokalizacja + wynagrodzenie */}

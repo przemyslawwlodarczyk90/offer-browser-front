@@ -60,8 +60,10 @@ export default function OfferDetailPage() {
     </div>
   )
 
-  const level  = normalizeLevel(offer.level)
-  const salary = formatSalary(offer.salary)
+  const level   = normalizeLevel(offer.level)
+  const salary  = formatSalary(offer.salaryRange ?? offer.salary)
+  const isDup   = offer.isDuplicate ?? offer.duplicate ?? false
+  const company = offer.companyName ?? offer.company ?? '—'
 
   return (
     <div className="detail-page animate-fade-in">
@@ -72,8 +74,8 @@ export default function OfferDetailPage() {
           <button
             className="btn btn--danger btn--sm"
             onClick={handleMarkDup}
-            disabled={marking || offer.duplicate}
-            title={offer.duplicate ? 'Już oznaczono' : 'Oznacz jako duplikat'}
+            disabled={marking || isDup}
+            title={isDup ? 'Już oznaczono' : 'Oznacz jako duplikat'}
           >
             {marking ? '…' : '⊗ Duplikat'}
           </button>
@@ -88,12 +90,12 @@ export default function OfferDetailPage() {
         <div className="detail-hero-left">
           <div className="detail-badges">
             <Badge level={level} />
-            {offer.duplicate && (
+            {isDup && (
               <span className="detail-dup-tag">DUPLIKAT</span>
             )}
           </div>
           <h1 className="detail-title">{offer.title}</h1>
-          <p  className="detail-company">{offer.companyName ?? '—'}</p>
+          <p  className="detail-company">{company}</p>
         </div>
         {salary && (
           <div className="detail-salary">{salary}</div>

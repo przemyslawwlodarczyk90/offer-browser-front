@@ -222,7 +222,7 @@ export default function MyOffersPage() {
 function MyOfferCard({ offer, isApplied, userId, onDetail, onApplied, style }) {
   const [applying, setApplying] = useState(false)
   const level  = normalizeLevel(offer.level)
-  const salary = formatSalary(offer.salary)
+  const salary = formatSalary(offer.salaryRange ?? offer.salary)
   const date   = getDate(offer)
 
   const handleApply = async (e) => {
@@ -263,7 +263,7 @@ function MyOfferCard({ offer, isApplied, userId, onDetail, onApplied, style }) {
       {/* Firma */}
       <p className="mo-card-company">
         <span aria-hidden="true" style={{ color: 'var(--text-3)', fontSize: '.72rem' }}>◉</span>
-        {offer.companyName ?? '—'}
+        {offer.companyName ?? offer.company ?? '—'}
       </p>
 
       {/* Chipy: miasto + wynagrodzenie */}

@@ -1,7 +1,7 @@
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  ŚCIEŻKA:  src/pages/auth/LoginPage.jsx                    ║
-// ║  AKCJA:    NADPISZ — POPRAWKA KRYTYCZNA                    ║
-// ║  FIX:      Wyciąga userId z JWT i zapisuje w store         ║
+// ║  AKCJA:    NADPISZ                                         ║
+// ║  FIX:      userId z res.data (nie z JWT sub = email)       ║
 // ╚══════════════════════════════════════════════════════════════╝
 
 import { useState, useEffect } from 'react'
@@ -28,6 +28,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [showPw,  setShowPw]  = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [debug,   setDebug]   = useState(null) // tymczasowe — do podglądu odpowiedzi
 
   useEffect(() => { setMounted(true) }, [])
 
@@ -45,17 +46,35 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const res   = await authApi.login(form)
-      const token = res.data?.token
+      const data  = res.data
+      const token = data?.token
 
-      // Wyciągnij userId z payloadu JWT (pole "sub" lub "userId")
+      // ── Dekoduj JWT aby zobaczyć jego zawartość ──────────────────
       const payload = decodeJwtPayload(token)
-      const userId  = payload?.userId ?? payload?.sub ?? res.data?.userId ?? null
 
+      // ── Wyciągnij userId — sprawdzamy wszystkie możliwe miejsca ──
+      // Backend Spring zwraca zwykle: { token, userId, username, email }
+      // JWT sub może być emailem lub username — NIE używamy go jako ID
+      const userId =
+        data?.userId   ??   // res.data.userId (najlepsze źródło)
+        data?.id       ??   // res.data.id
+        payload?.userId ??  // JWT claim "userId"
+        payload?.id    ??   // JWT claim "id"
+        null                // NIE używamy payload.sub — to email/username
+
+      // ── Zapisz w store ───────────────────────────────────────────
       setAuth(token, {
         id:       userId,
-        username: form.username,
-        email:    res.data?.email ?? null,
+        username: data?.username ?? form.username,
+        email:    data?.email    ?? null,
       })
+
+      // Tymczasowy debug — usuń po weryfikacji
+      setDebug({ data, payload, resolvedUserId: userId })
+      console.log('[LOGIN] res.data:', data)
+      console.log('[LOGIN] JWT payload:', payload)
+      console.log('[LOGIN] resolved userId:', userId)
+
       navigate('/dashboard', { replace: true })
     } catch (err) {
       toast.error(err?.message ?? 'Nieprawidłowe dane logowania')
