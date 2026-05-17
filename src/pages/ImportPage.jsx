@@ -67,12 +67,12 @@ function StatusLog({ log, error }) {
 // Sekcja: Uruchom skrypt
 // ─────────────────────────────────────────────────────────────────
 function ScriptSection() {
-  const [status, setStatus] = useState(null) // null|'started'|'error'
-  const [log,    setLog]    = useState(null)
-  const [error,  setError]  = useState(null)
+  const [status,  setStatus]  = useState(null) // null|'pending'|'started'|'error'
+  const [log,     setLog]     = useState(null)
+  const [error,   setError]   = useState(null)
 
   const handleRun = async () => {
-    setStatus(null)
+    setStatus('pending')
     setLog(null)
     setError(null)
     try {
@@ -87,6 +87,8 @@ function ScriptSection() {
     }
   }
 
+  const isPending = status === 'pending'
+
   return (
     <section className="imp-section">
       <div className="imp-section-head">
@@ -100,9 +102,22 @@ function ScriptSection() {
       </div>
 
       <div className="imp-section-body">
-        <button className="imp-run-btn" onClick={handleRun}>
-          ▶ Uruchom skrypt
-        </button>
+
+        <div className="imp-notice">
+          <span className="imp-notice-icon">◷</span>
+          <span>Skrypt może działać <strong>kilka minut</strong> — operacja odbywa się w tle i nie blokuje aplikacji.</span>
+        </div>
+
+        <div className="imp-btn-wrap">
+          <button className="imp-run-btn" onClick={handleRun} disabled={isPending}>
+            {isPending
+              ? <><span className="imp-spin" />Uruchamianie…</>
+              : '▶ Uruchom skrypt'}
+          </button>
+          {isPending && (
+            <span className="imp-btn-hint">Trwa pobieranie danych, proszę czekać…</span>
+          )}
+        </div>
 
         {status === 'started' && (
           <div className="imp-bg-info">
@@ -423,6 +438,23 @@ function ImportStyles() {
         background: var(--accent-dim); box-shadow: var(--shadow-accent);
       }
       .imp-run-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+      .imp-notice {
+        display: flex; align-items: flex-start; gap: 8px;
+        padding: 10px 13px;
+        background: rgba(250,204,21,0.06); border: 1px solid rgba(250,204,21,0.25);
+        border-radius: var(--radius-md);
+        font-size: 0.76rem; color: var(--text-2); line-height: 1.5;
+      }
+      .imp-notice-icon { color: var(--yellow); flex-shrink: 0; font-size: 0.85rem; margin-top: 1px; }
+      .imp-notice strong { color: var(--text-1); }
+
+      .imp-btn-wrap { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+      .imp-btn-hint {
+        font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-3);
+        animation: pulse 1.8s ease-in-out infinite;
+      }
+      @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
 
       .imp-bg-info {
         display: flex; align-items: flex-start; gap: 10px;
