@@ -209,7 +209,7 @@ export default function DashboardPage() {
           <div className="db-card-body db-card-body--actions">
             <QuickAction
               icon="◉" label="Moje oferty"
-              desc="Zarządzaj aplikacjami"
+              desc={pendingCount > 0 ? `${pendingCount} ofert do aplikacji` : 'Zarządzaj aplikacjami'}
               to="/my-offers" accent="var(--accent)"
               navigate={navigate}
             />
