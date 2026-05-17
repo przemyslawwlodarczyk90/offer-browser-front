@@ -686,14 +686,21 @@ function ImportStyles() {
 
       /* ── Przycisk Instrukcja ── */
       .imp-info-btn {
-        display: inline-flex; align-items: center; gap: 6px;
-        padding: 9px 14px; background: none; color: var(--text-2);
-        border: 1px dashed var(--border-1); border-radius: var(--radius-md);
-        font-family: var(--font-mono); font-size: 0.76rem;
-        cursor: pointer; transition: color .15s, border-color .15s;
-        white-space: nowrap;
+        display: inline-flex; align-items: center; gap: 7px;
+        padding: 9px 16px;
+        background: rgba(0,212,212,.1);
+        color: var(--cyan);
+        border: 1px solid rgba(0,212,212,.45);
+        border-radius: var(--radius-md);
+        font-family: var(--font-mono); font-size: 0.78rem; font-weight: 700;
+        cursor: pointer; white-space: nowrap;
+        transition: background .15s, border-color .15s, box-shadow .15s;
       }
-      .imp-info-btn:hover { color: var(--accent); border-color: var(--accent); }
+      .imp-info-btn:hover {
+        background: rgba(0,212,212,.18);
+        border-color: var(--cyan);
+        box-shadow: 0 0 0 2px rgba(0,212,212,.15);
+      }
 
       /* ── Przycisk akcji ── */
       .imp-action-btn {
