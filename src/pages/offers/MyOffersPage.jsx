@@ -17,6 +17,7 @@ import { formatDate, normalizeLevel, truncate, formatSalary } from '@/utils'
 const TABS = [
   { id: 'not-applied', label: 'Do aplikacji',   icon: '◎' },
   { id: 'applied',     label: 'Zaaplikowane',   icon: '✓' },
+  { id: 'useless',     label: 'Śmietnik',       icon: '🗑' },
 ]
 
 // Klucze dat w kolejności priorytetu
@@ -58,20 +59,32 @@ export default function MyOffersPage() {
     { immediate: !!userId }
   )
 
+  const {
+    data: useless,
+    loading: loadingU,
+    error: errorU,
+    execute: reloadU,
+  } = useApi(
+    useCallback(() => userOffersApi.getUseless(userId), [userId]),
+    { immediate: !!userId }
+  )
+
   // Po aplikacji odśwież obie listy
   const handleApplied = useCallback(() => {
     reloadNA()
     reloadA()
   }, [reloadNA, reloadA])
 
-  const appliedCount   = applied?.length   ?? 0
+  const appliedCount    = applied?.length   ?? 0
   const notAppliedCount = notApplied?.length ?? 0
+  const uselessCount    = useless?.length   ?? 0
 
-  const isNA    = activeTab === 'not-applied'
-  const list    = isNA ? (notApplied ?? []) : (applied ?? [])
-  const loading = isNA ? loadingNA : loadingA
-  const error   = isNA ? errorNA   : errorA
-  const reload  = isNA ? reloadNA  : reloadA
+  const isNA      = activeTab === 'not-applied'
+  const isUseless = activeTab === 'useless'
+  const list    = isNA ? (notApplied ?? []) : isUseless ? (useless ?? []) : (applied ?? [])
+  const loading = isNA ? loadingNA : isUseless ? loadingU : loadingA
+  const error   = isNA ? errorNA   : isUseless ? errorU   : errorA
+  const reload  = isNA ? reloadNA  : isUseless ? reloadU  : reloadA
 
   // Brak userId w sesji
   if (!userId) {
@@ -129,7 +142,7 @@ export default function MyOffersPage() {
       {/* ── Zakładki ── */}
       <div className="mo-tabs" role="tablist">
         {TABS.map((tab) => {
-          const count = tab.id === 'not-applied' ? notAppliedCount : appliedCount
+          const count = tab.id === 'not-applied' ? notAppliedCount : tab.id === 'useless' ? uselessCount : appliedCount
           return (
             <button
               key={tab.id}
@@ -174,15 +187,17 @@ export default function MyOffersPage() {
       {/* ── Pusta lista ── */}
       {!loading && !error && list.length === 0 && (
         <EmptyState
-          icon={isNA ? '◎' : '✓'}
-          title={isNA ? 'Brak ofert do aplikacji' : 'Brak zaaplikowanych ofert'}
+          icon={isNA ? '◎' : isUseless ? '🗑' : '✓'}
+          title={isNA ? 'Brak ofert do aplikacji' : isUseless ? 'Śmietnik jest pusty' : 'Brak zaaplikowanych ofert'}
           description={
             isNA
               ? 'Wszystkie oferty zostały już przetworzone lub baza jest pusta.'
+              : isUseless
+              ? 'Żadna oferta nie została oznaczona jako nieprzydatna.'
               : 'Nie zaaplikowałeś jeszcze na żadną ofertę. Przejdź do listy ofert i kliknij "Aplikuj".'
           }
           action={
-            isNA ? null : (
+            isNA || isUseless ? null : (
               <button
                 className="btn btn--primary btn--sm"
                 onClick={() => navigate('/offers')}

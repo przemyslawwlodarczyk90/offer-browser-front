@@ -26,8 +26,12 @@ export const userOffersApi = {
     api.get('/user-offers/not-applied', { headers: { userId } }),
   getApplied: (userId) =>
     api.get('/user-offers/applied', { headers: { userId } }),
+  getUseless: (userId) =>
+    api.get('/user-offers/useless', { headers: { userId } }),
   applyToOffer: (userId, offerId) =>
     api.post(`/user-offers/${offerId}/apply`, null, { headers: { userId } }),
+  markUseless: (userId, offerId) =>
+    api.post(`/user-offers/${offerId}/useless`, null, { headers: { userId } }),
 }
 
 // ── Application Notes ─────────────────────────────────────────────

@@ -17,8 +17,9 @@ export default function OfferDetailPage() {
 
   useTitle(offer?.title ?? 'Szczegóły oferty')
 
-  const [applying, setApplying] = useState(false)
-  const [marking,  setMarking]  = useState(false)
+  const [applying,       setApplying]       = useState(false)
+  const [marking,        setMarking]        = useState(false)
+  const [markingUseless, setMarkingUseless] = useState(false)
 
   const handleApply = async () => {
     if (!user?.id) { toast.warn('Brak ID użytkownika w sesji'); return }
@@ -52,6 +53,20 @@ export default function OfferDetailPage() {
     }
   }
 
+  const handleMarkUseless = async () => {
+    if (!user?.id) { toast.warn('Brak ID użytkownika w sesji'); return }
+    setMarkingUseless(true)
+    try {
+      await userOffersApi.markUseless(user.id, id)
+      toast.info('Oferta przeniesiona do śmietnika')
+      navigate(-1)
+    } catch (err) {
+      toast.error(err?.message ?? 'Błąd oznaczania oferty')
+    } finally {
+      setMarkingUseless(false)
+    }
+  }
+
   /* ── Loading ── */
   if (loading) return <DetailSkeleton />
 
@@ -77,6 +92,14 @@ export default function OfferDetailPage() {
       <div className="detail-nav">
         <button className="detail-back" onClick={() => navigate(-1)}>← Oferty</button>
         <div className="detail-actions">
+          <button
+            className="btn btn--ghost btn--sm"
+            onClick={handleMarkUseless}
+            disabled={markingUseless}
+            title="Przenieś do śmietnika"
+          >
+            {markingUseless ? '…' : '🗑 Nieprzydatne'}
+          </button>
           <button
             className="btn btn--danger btn--sm"
             onClick={handleMarkDup}
