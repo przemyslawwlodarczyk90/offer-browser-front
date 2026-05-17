@@ -199,14 +199,20 @@ function NotesTab({ notes, loading, error, reload }) {
 
   const companies = useMemo(() => {
     if (!notes) return []
-    const set = new Set(notes.map(n => n.companyName).filter(Boolean))
-    return ['Wszystkie', ...Array.from(set).sort()]
+    const seen = new Map()
+    notes.forEach(n => {
+      if (n.companyName) {
+        const key = n.companyName.toLowerCase()
+        if (!seen.has(key)) seen.set(key, n.companyName)
+      }
+    })
+    return ['Wszystkie', ...Array.from(seen.values()).sort((a, b) => a.localeCompare(b, 'pl'))]
   }, [notes])
 
   const filtered = useMemo(() => {
     let list = notes ?? []
     if (company !== 'Wszystkie')
-      list = list.filter(n => n.companyName === company)
+      list = list.filter(n => n.companyName?.toLowerCase() === company.toLowerCase())
     if (q.trim()) {
       const lq = q.toLowerCase()
       list = list.filter(n =>
