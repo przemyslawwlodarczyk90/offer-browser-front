@@ -54,8 +54,8 @@ function StatusLog({ log, error }) {
             ))}
           </div>
         )}
-        {/* Surowy JSON jeśli brak znanych pól */}
-        {rows.length === 0 && (
+        {/* Surowy JSON tylko jeśli są nieznane pola poza message */}
+        {rows.length === 0 && Object.keys(log).some(k => !['message','imported','skipped','duplicates','total'].includes(k)) && (
           <pre className="imp-log-raw">{JSON.stringify(log, null, 2)}</pre>
         )}
       </div>
