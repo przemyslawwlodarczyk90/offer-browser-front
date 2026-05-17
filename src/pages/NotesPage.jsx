@@ -136,27 +136,15 @@ function NewNoteModal({ userId, onClose, onCreated }) {
 // Karta notatki
 // ─────────────────────────────────────────────────────────────────
 function NoteCard({ note, style }) {
-  const [expanded, setExpanded] = useState(false)
-  const hasContent = note.content?.trim()
-
   return (
     <article className="n-card animate-fade-in" style={style}>
       <div className="n-card-head">
-        <div className="n-card-meta">
-          <span className="n-card-company">
-            <span className="n-card-dot">◉</span>
-            {note.companyName ?? '—'}
-          </span>
-          {note.external && (
-            <span className="n-badge n-badge--ext">zewnętrzna</span>
-          )}
-        </div>
-        <time className="n-card-date">{formatDateTime(note.applicationDate ?? note.createdAt)}</time>
+        <span className="n-card-company">
+          <span className="n-card-dot">◉</span>
+          {note.companyName ?? '—'}
+        </span>
+        <time className="n-card-date">{formatDateTime(note.appliedAt)}</time>
       </div>
-
-      {note.offerTitle && (
-        <p className="n-card-offer">{truncate(note.offerTitle, 80)}</p>
-      )}
 
       {note.offerUrl && (
         <a
@@ -170,20 +158,8 @@ function NoteCard({ note, style }) {
         </a>
       )}
 
-      {hasContent && (
-        <div className="n-card-content-wrap">
-          <p className={`n-card-content${expanded ? '' : ' n-card-content--clamped'}`}>
-            {note.content}
-          </p>
-          {note.content.length > 120 && (
-            <button
-              className="n-card-expand"
-              onClick={() => setExpanded(v => !v)}
-            >
-              {expanded ? '▲ Zwiń' : '▼ Rozwiń'}
-            </button>
-          )}
-        </div>
+      {note.offerId && (
+        <p className="n-card-offerid">ID oferty: {note.offerId}</p>
       )}
     </article>
   )
@@ -217,8 +193,7 @@ function NotesTab({ notes, loading, error, reload }) {
       const lq = q.toLowerCase()
       list = list.filter(n =>
         n.companyName?.toLowerCase().includes(lq) ||
-        n.offerTitle?.toLowerCase().includes(lq) ||
-        n.content?.toLowerCase().includes(lq)
+        n.offerUrl?.toLowerCase().includes(lq)
       )
     }
     return list
@@ -348,7 +323,12 @@ function CompaniesTab({ userId }) {
     />
   )
 
-  if (!companies?.length) return (
+  // Backend zwraca Map<String, List<String>>: { "Firma": ["2025-01-15", ...] }
+  const entries = companies && typeof companies === 'object' && !Array.isArray(companies)
+    ? Object.entries(companies).map(([companyName, dates]) => ({ companyName, dates }))
+    : []
+
+  if (!entries.length) return (
     <EmptyState
       icon="◉"
       title="Brak firm"
@@ -356,10 +336,9 @@ function CompaniesTab({ userId }) {
     />
   )
 
-  // Posortuj wg najnowszej daty
-  const sorted = [...companies].sort((a, b) => {
-    const da = new Date(a.lastApplicationDate ?? a.applicationDate ?? 0)
-    const db = new Date(b.lastApplicationDate ?? b.applicationDate ?? 0)
+  const sorted = [...entries].sort((a, b) => {
+    const da = a.dates?.at(-1) ? new Date(a.dates.at(-1)) : 0
+    const db = b.dates?.at(-1) ? new Date(b.dates.at(-1)) : 0
     return db - da
   })
 
@@ -367,39 +346,29 @@ function CompaniesTab({ userId }) {
     <>
       <p className="n-count"><strong>{sorted.length}</strong> firm</p>
       <div className="n-companies-grid">
-        {sorted.map((company, i) => (
+        {sorted.map(({ companyName, dates }, i) => (
           <div
-            key={company.companyName ?? i}
+            key={companyName}
             className="n-company-card animate-fade-in"
             style={{ animationDelay: `${Math.min(i * 30, 350)}ms` }}
           >
             <div className="n-company-head">
               <span className="n-company-dot">◉</span>
-              <span className="n-company-name">{company.companyName ?? '—'}</span>
+              <span className="n-company-name">{companyName}</span>
             </div>
 
-            {/* Daty aplikacji */}
             <div className="n-company-dates">
-              {company.applicationDates?.length > 0
-                ? company.applicationDates.map((d, j) => (
-                    <span key={j} className="n-company-date-chip">
-                      {formatDate(d)}
-                    </span>
+              {dates?.length > 0
+                ? dates.map((d, j) => (
+                    <span key={j} className="n-company-date-chip">{formatDate(d)}</span>
                   ))
-                : (company.applicationDate || company.lastApplicationDate)
-                    ? <span className="n-company-date-chip">
-                        {formatDate(company.applicationDate ?? company.lastApplicationDate)}
-                      </span>
-                    : <span className="n-company-date-chip n-company-date-chip--empty">brak daty</span>
+                : <span className="n-company-date-chip n-company-date-chip--empty">brak daty</span>
               }
             </div>
 
-            {/* Liczba aplikacji jeśli backend zwraca */}
-            {company.count != null && (
-              <p className="n-company-count">
-                {company.count} {company.count === 1 ? 'aplikacja' : 'aplikacji'}
-              </p>
-            )}
+            <p className="n-company-count">
+              {dates?.length ?? 0} {dates?.length === 1 ? 'aplikacja' : 'aplikacji'}
+            </p>
           </div>
         ))}
       </div>
@@ -619,6 +588,9 @@ function NotesStyles() {
         font-size: 0.78rem; color: var(--text-1);
         padding: 6px 8px; background: var(--bg-2);
         border-radius: var(--radius-sm); border-left: 2px solid var(--border-0);
+      }
+      .n-card-offerid {
+        font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-3); margin: 0;
       }
       .n-card-link {
         font-family: var(--font-mono); font-size: 0.7rem; color: var(--accent);

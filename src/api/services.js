@@ -32,10 +32,14 @@ export const userOffersApi = {
 
 // ── Application Notes ─────────────────────────────────────────────
 export const notesApi = {
-  getAll:              (userId) => api.get('/application-notes', { params: { userId } }),
-  getCompaniesWithDates:(userId) => api.get('/application-notes/companies-with-dates', { params: { userId } }),
+  getAll: (userId) =>
+    api.get('/application-notes', { params: { userId } }),
+  getCompaniesWithDates: (userId) =>
+    api.get('/application-notes/companies-with-dates', { params: { userId } }),
+  create: (userId, offerId, companyName, offerUrl) =>
+    api.post('/application-notes', null, { params: { userId, offerId, companyName, ...(offerUrl && { offerUrl }) } }),
   createExternal: (userId, companyName, offerUrl) =>
-    api.post('/application-notes/external', null, { params: { userId, companyName, offerUrl } }),
+    api.post('/application-notes/external', null, { params: { userId, companyName, ...(offerUrl && { offerUrl }) } }),
 }
 
 // ── Statistics ────────────────────────────────────────────────────

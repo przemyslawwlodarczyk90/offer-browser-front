@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { offersApi, userOffersApi } from '@/api/services'
+import { offersApi, userOffersApi, notesApi } from '@/api/services'
 import { useApi, useTitle } from '@/hooks'
 import { useAuthStore, toast } from '@/store'
 import { Badge } from '@/components/ui'
@@ -25,6 +25,12 @@ export default function OfferDetailPage() {
     setApplying(true)
     try {
       await userOffersApi.applyToOffer(user.id, id)
+      try {
+        const companyName = offer.company ?? offer.companyName
+        await notesApi.create(user.id, Number(id), companyName, offer.offerUrl)
+      } catch {
+        // notatka to bonus — nie blokuj sukcesu aplikacji
+      }
       toast.success('Aplikacja zapisana!')
     } catch (err) {
       toast.error(err?.message ?? 'Błąd zapisu aplikacji')
