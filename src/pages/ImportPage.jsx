@@ -67,27 +67,25 @@ function StatusLog({ log, error }) {
 // Sekcja: Uruchom skrypt
 // ─────────────────────────────────────────────────────────────────
 function ScriptSection() {
-  const [status,  setStatus]  = useState(null) // 'idle'|'running'|'done'|'error'
-  const [log,     setLog]     = useState(null)
-  const [error,   setError]   = useState(null)
+  const [status, setStatus] = useState(null) // null|'started'|'error'
+  const [log,    setLog]    = useState(null)
+  const [error,  setError]  = useState(null)
 
   const handleRun = async () => {
-    setStatus('running')
+    setStatus(null)
     setLog(null)
     setError(null)
     try {
       const res = await importApi.runScript()
       setLog(parseLog(res.data))
-      setStatus('done')
-      toast.success('Skrypt zakończony pomyślnie')
+      setStatus('started')
+      toast.success('Skrypt uruchomiony w tle')
     } catch (err) {
       setError(err)
       setStatus('error')
       toast.error(err?.message ?? 'Błąd uruchamiania skryptu')
     }
   }
-
-  const isRunning = status === 'running'
 
   return (
     <section className="imp-section">
@@ -102,21 +100,17 @@ function ScriptSection() {
       </div>
 
       <div className="imp-section-body">
-        <button
-          className="imp-run-btn"
-          onClick={handleRun}
-          disabled={isRunning}
-        >
-          {isRunning
-            ? <><span className="imp-spin" />Uruchamianie…</>
-            : '▶ Uruchom skrypt'
-          }
+        <button className="imp-run-btn" onClick={handleRun}>
+          ▶ Uruchom skrypt
         </button>
 
-        {status === 'running' && (
-          <div className="imp-running-info">
+        {status === 'started' && (
+          <div className="imp-bg-info">
             <span className="imp-spin imp-spin--sm" />
-            <span>Skrypt działa — może to potrwać kilka minut…</span>
+            <span>
+              Skrypt działa w tle — import ofert nastąpi automatycznie po jego zakończeniu.
+              Możesz korzystać z aplikacji normalnie.
+            </span>
           </div>
         )}
 
@@ -430,10 +424,15 @@ function ImportStyles() {
       }
       .imp-run-btn:disabled { opacity: .5; cursor: not-allowed; }
 
-      .imp-running-info {
-        display: flex; align-items: center; gap: 8px;
-        font-family: var(--font-mono); font-size: 0.76rem; color: var(--text-2);
+      .imp-bg-info {
+        display: flex; align-items: flex-start; gap: 10px;
+        padding: 12px 14px;
+        background: rgba(0,212,212,0.06); border: 1px solid rgba(0,212,212,0.25);
+        border-radius: var(--radius-md);
+        font-family: var(--font-mono); font-size: 0.76rem; color: var(--text-1);
+        line-height: 1.5;
       }
+      .imp-bg-info .imp-spin { flex-shrink: 0; margin-top: 2px; color: var(--cyan); }
 
       /* ── Spinner ── */
       .imp-spin {
