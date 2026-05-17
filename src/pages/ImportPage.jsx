@@ -129,7 +129,7 @@ function ScriptSection() {
           </div>
         )}
 
-        <StatusLog log={log} error={status === 'error' ? error : null} />
+        <StatusLog log={null} error={status === 'error' ? error : null} />
       </div>
     </section>
   )
