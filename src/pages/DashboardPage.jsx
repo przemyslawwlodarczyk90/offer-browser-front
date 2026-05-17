@@ -82,24 +82,24 @@ export default function DashboardPage() {
 
   // ── Dane ─────────────────────────────────────────────────────
   const { data: totalRaw,  loading: loadingT } =
-    useApi(useCallback(() => statsApi.getTotalOffers(), []),      { immediate: true })
+    useApi(() => statsApi.getTotalOffers(),       { immediate: true })
 
   const { data: levelRaw,  loading: loadingL } =
-    useApi(useCallback(() => statsApi.getLevelDistribution(), []), { immediate: true })
+    useApi(() => statsApi.getLevelDistribution(), { immediate: true })
 
   const { data: allOffers, loading: loadingO } =
-    useApi(useCallback(() => offersApi.getAll(), []),             { immediate: true })
+    useApi(() => offersApi.getAll(),              { immediate: true })
 
   const { data: applied,   loading: loadingA } =
     useApi(
-      useCallback(() => userOffersApi.getApplied(userId), [userId]),
-      { immediate: !!userId }
+      () => userOffersApi.getApplied(userId),
+      { immediate: !!userId, deps: [userId] }
     )
 
   const { data: notApplied, loading: loadingNA } =
     useApi(
-      useCallback(() => userOffersApi.getNotApplied(userId), [userId]),
-      { immediate: !!userId }
+      () => userOffersApi.getNotApplied(userId),
+      { immediate: !!userId, deps: [userId] }
     )
 
   // ── Pochodne ─────────────────────────────────────────────────
