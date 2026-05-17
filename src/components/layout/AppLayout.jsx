@@ -4,29 +4,15 @@
 // ║  ZMIANA:   Dodano licznik zaaplikowanych w sidebarze ║
 // ╚══════════════════════════════════════════════════════╝
 
-import { useEffect, useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore, useUIStore } from '@/store'
-import { userOffersApi } from '@/api/services'
 import ToastContainer from '@/components/ui/ToastContainer'
-
-// ── Licznik aplikacji — pobierany raz przy montowaniu ──────────────
-function useAppliedCount(userId) {
-  const [count, setCount] = useState(null)
-  useEffect(() => {
-    if (!userId) return
-    userOffersApi.getApplied(userId)
-      .then((res) => setCount(res.data?.length ?? 0))
-      .catch(() => setCount(null))
-  }, [userId])
-  return count
-}
 
 // ── Definicja nawigacji ───────────────────────────────────────────
 const NAV_TOP = [
   { to: '/dashboard', icon: '◈', label: 'Dashboard'  },
   { to: '/offers',    icon: '◉', label: 'Oferty'      },
-  { to: '/my-offers', icon: '◎', label: 'Moje Oferty', showCount: true },
+  { to: '/my-offers', icon: '◎', label: 'Moje Oferty' },
   { to: '/notes',     icon: '◷', label: 'Notatki'     },
   { to: '/import',    icon: '⊕', label: 'Import'      },
   { to: '/stats',     icon: '▦', label: 'Statystyki'  },
@@ -36,8 +22,7 @@ const NAV_TOP = [
 export default function AppLayout() {
   const { user, logout }               = useAuthStore()
   const { sidebarOpen, toggleSidebar } = useUIStore()
-  const navigate     = useNavigate()
-  const appliedCount = useAppliedCount(user?.id)
+  const navigate = useNavigate()
 
   const handleLogout = () => { logout(); navigate('/login') }
 
@@ -56,7 +41,7 @@ export default function AppLayout() {
           </div>
 
           <nav className="sb-nav">
-            {NAV_TOP.map(({ to, icon, label, showCount }) => (
+            {NAV_TOP.map(({ to, icon, label }) => (
               <NavLink
                 key={to}
                 to={to}
@@ -64,10 +49,6 @@ export default function AppLayout() {
               >
                 <span className="nav-icon">{icon}</span>
                 {sidebarOpen && <span className="nav-label">{label}</span>}
-                {/* Licznik aplikacji obok "Moje Oferty" */}
-                {showCount && appliedCount !== null && appliedCount > 0 && (
-                  <span className="nav-badge">{appliedCount}</span>
-                )}
               </NavLink>
             ))}
           </nav>
