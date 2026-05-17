@@ -104,10 +104,9 @@ export default function OfferDetailPage() {
 
       {/* ── Meta grid ── */}
       <div className="detail-meta">
-        <MetaBox icon="◎" label="Miasto"         value={offer.city ?? '—'} />
-        <MetaBox icon="⊙" label="Poziom"         value={level} />
-        <MetaBox icon="◷" label="Dodano"          value={formatDate(offer.createdAt ?? offer.fetchedAt)} />
-        <MetaBox icon="◈" label="Aktualizacja"   value={formatDateTime(offer.updatedAt)} />
+        <MetaBox icon="◎" label="Miasto"  value={offer.city ?? offer.location ?? '—'} />
+        <MetaBox icon="⊙" label="Poziom"  value={level} />
+        <MetaBox icon="◷" label="Dodano"  value={formatDate(offer.fetchedAt)} />
         {offer.offerUrl && (
           <div className="meta-box meta-box--wide">
             <span className="meta-label">Źródło</span>
