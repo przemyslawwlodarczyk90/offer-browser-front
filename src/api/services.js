@@ -57,5 +57,5 @@ export const statsApi = {
 export const importApi = {
   runScript:       ()     => api.get('/python-script/run', { timeout: 0 }),
   importFromJson:  (data) => api.post('/python-script/import', data),
-  importFromUrl:   (url)  => api.post('/python-script/import-from-url', null, { params: { url } }),
+  importFromUrl:   (url)  => api.post('/python-script/import-from-url', null, { params: { offerUrl: url } }),
 }
