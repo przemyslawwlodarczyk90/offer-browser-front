@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { offersApi } from '@/api/services'
+import { offersApi, adminApi } from '@/api/services'
 import { useApi, useDebounce, useTitle } from '@/hooks'
 import { useAuthStore, toast } from '@/store'
 import { Badge, EmptyState, PageHeader, ConfirmModal } from '@/components/ui'
@@ -12,7 +12,7 @@ const SORT_OPTS = [
 ]
 
 const LEVELS = ['Wszystkie', 'Trainee', 'Junior', 'Mid', 'Senior', 'Expert']
-const STATUS_OPTS = ['Wszystkie', 'Duplikaty', 'Normalne']
+const STATUS_OPTS = ['Wszystkie', 'Duplikaty', 'Nieprzydatne', 'Normalne']
 const DATE_KEYS = ['createdAt', 'fetchedAt', 'updatedAt']
 
 function getDate(offer) {
@@ -30,6 +30,12 @@ export default function OffersPage() {
   const { data: raw, loading, error, execute: reload } =
     useApi(offersApi.getAll, { immediate: true })
 
+  const { data: uselessIdsRaw } = useApi(
+    adminApi.getUselessOfferIds,
+    { immediate: isAdmin }
+  )
+  const uselessSet = useMemo(() => new Set(uselessIdsRaw ?? []), [uselessIdsRaw])
+
   const [search,   setSearch]   = useState('')
   const [sort,     setSort]     = useState('newest')
   const [level,    setLevel]    = useState('Wszystkie')
@@ -43,14 +49,18 @@ export default function OffersPage() {
     (raw ?? []).filter(o => o.isDuplicate ?? o.duplicate).length,
   [raw])
 
+  const uselessCount = uselessSet.size
+
   const offers = useMemo(() => {
     let list = raw ?? []
     if (level !== 'Wszystkie')
       list = list.filter(o => normalizeLevel(o.level) === level)
     if (isAdmin && status === 'Duplikaty')
       list = list.filter(o => o.isDuplicate ?? o.duplicate)
+    if (isAdmin && status === 'Nieprzydatne')
+      list = list.filter(o => uselessSet.has(o.id))
     if (isAdmin && status === 'Normalne')
-      list = list.filter(o => !(o.isDuplicate ?? o.duplicate))
+      list = list.filter(o => !(o.isDuplicate ?? o.duplicate) && !uselessSet.has(o.id))
     if (q.trim()) {
       const lq = q.toLowerCase()
       list = list.filter(o =>
@@ -61,7 +71,7 @@ export default function OffersPage() {
     }
     const dateKey = DATE_KEYS.find(k => list.some(o => o[k])) ?? 'createdAt'
     return sortByDate(list, dateKey, sort === 'newest' ? 'desc' : 'asc')
-  }, [raw, level, q, sort, isAdmin, status])
+  }, [raw, level, q, sort, isAdmin, status, uselessSet])
 
   const goToDetail = useCallback((id) => navigate(`/offers/${id}`), [navigate])
 
@@ -106,7 +116,7 @@ export default function OffersPage() {
         title="Oferty pracy"
         subtitle={
           raw
-            ? `${raw.length} ofert w bazie${isAdmin && dupCount > 0 ? ` · ${dupCount} duplikat${dupCount === 1 ? '' : 'ów'}` : ''}`
+            ? `${raw.length} ofert w bazie${isAdmin && dupCount > 0 ? ` · ${dupCount} duplikat${dupCount === 1 ? '' : 'ów'}` : ''}${isAdmin && uselessCount > 0 ? ` · ${uselessCount} nieprzydatnych` : ''}`
             : ''
         }
         actions={
@@ -152,18 +162,24 @@ export default function OffersPage() {
       {/* ── Status filter (admin only) ── */}
       {isAdmin && (
         <div className="of-levels of-status-row">
-          {STATUS_OPTS.map(s => (
-            <button
-              key={s}
-              className={`of-pill${status === s ? ' of-pill--on' : ''}${s === 'Duplikaty' && status !== s ? ' of-pill--dup-idle' : ''}`}
-              onClick={() => setStatus(s)}
-            >
-              {s === 'Duplikaty' ? `⚑ ${s}` : s}
-              {s === 'Duplikaty' && dupCount > 0 && (
-                <span className="of-pill-badge">{dupCount}</span>
-              )}
-            </button>
-          ))}
+          {STATUS_OPTS.map(s => {
+            const isDupPill      = s === 'Duplikaty'
+            const isUselessPill  = s === 'Nieprzydatne'
+            const isFlagged      = isDupPill || isUselessPill
+            const count          = isDupPill ? dupCount : isUselessPill ? uselessCount : 0
+            return (
+              <button
+                key={s}
+                className={`of-pill${status === s ? ' of-pill--on' : ''}${isFlagged && status !== s ? ' of-pill--dup-idle' : ''}`}
+                onClick={() => setStatus(s)}
+              >
+                {isFlagged ? `⚑ ${s}` : s}
+                {isFlagged && count > 0 && (
+                  <span className="of-pill-badge">{count}</span>
+                )}
+              </button>
+            )
+          })}
         </div>
       )}
 
@@ -247,6 +263,7 @@ export default function OffersPage() {
               key={offer.id}
               offer={offer}
               isAdmin={isAdmin}
+              isUseless={isAdmin && uselessSet.has(offer.id)}
               selected={selected.has(offer.id)}
               onSelect={e => toggleSelect(offer.id, e)}
               onClick={() => goToDetail(offer.id)}
@@ -273,7 +290,7 @@ export default function OffersPage() {
 // ─────────────────────────────────────────────────────────────────
 // Karta oferty
 // ─────────────────────────────────────────────────────────────────
-function OfferCard({ offer, isAdmin, selected, onSelect, onClick, style }) {
+function OfferCard({ offer, isAdmin, isUseless, selected, onSelect, onClick, style }) {
   const level   = normalizeLevel(offer.level)
   const salary  = formatSalary(offer.salaryRange ?? offer.salary)
   const date    = getDate(offer)
@@ -281,9 +298,10 @@ function OfferCard({ offer, isAdmin, selected, onSelect, onClick, style }) {
   const company = offer.companyName ?? offer.company ?? '—'
 
   let cardClass = 'of-card animate-fade-in'
-  if (isDup && isAdmin) cardClass += ' of-card--admin-dup'
-  else if (isDup)       cardClass += ' of-card--dup'
-  if (selected)         cardClass += ' of-card--selected'
+  if (isAdmin && isDup)     cardClass += ' of-card--admin-dup'
+  else if (isAdmin && isUseless) cardClass += ' of-card--admin-useless'
+  else if (isDup)           cardClass += ' of-card--dup'
+  if (selected)             cardClass += ' of-card--selected'
 
   return (
     <article
@@ -309,7 +327,10 @@ function OfferCard({ offer, isAdmin, selected, onSelect, onClick, style }) {
 
       <div className="of-card-top">
         <Badge level={level} />
-        {isDup && <span className="of-dup">DUPLIKAT</span>}
+        <div style={{ display: 'flex', gap: 4 }}>
+          {isDup     && <span className="of-dup">DUPLIKAT</span>}
+          {isUseless && <span className="of-dup of-dup--useless">NIEPRZYDATNA</span>}
+        </div>
       </div>
 
       <h3 className="of-card-title">{truncate(offer.title, 72)}</h3>
@@ -459,6 +480,21 @@ function OffersStyles() {
         border-color: var(--red);
         box-shadow: 0 4px 16px rgba(239,68,68,.25);
         transform: translateY(-2px);
+      }
+      .of-card--admin-useless {
+        border-color: rgba(245,158,11,.5);
+        background: rgba(245,158,11,.04);
+        box-shadow: 0 0 0 1px rgba(245,158,11,.15);
+      }
+      .of-card--admin-useless:hover,
+      .of-card--admin-useless:focus-visible {
+        border-color: #f59e0b;
+        box-shadow: 0 4px 16px rgba(245,158,11,.25);
+        transform: translateY(-2px);
+      }
+      .of-dup--useless {
+        color: #f59e0b;
+        border-color: rgba(245,158,11,.4);
       }
       .of-card--selected {
         border-color: var(--accent) !important;

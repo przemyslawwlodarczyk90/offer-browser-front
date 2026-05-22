@@ -62,8 +62,9 @@ export const importApi = {
 
 // ── Admin ─────────────────────────────────────────────────────────
 export const adminApi = {
-  getUsers:        ()         => api.get('/admin/users'),
-  getOfferMarkers: (offerId)  => api.get(`/admin/offers/${offerId}/markers`),
+  getUsers:          ()         => api.get('/admin/users'),
+  getOfferMarkers:   (offerId)  => api.get(`/admin/offers/${offerId}/markers`),
+  getUselessOfferIds: ()        => api.get('/admin/offers/useless-ids'),
 }
 
 // ── Notifications ─────────────────────────────────────────────────
