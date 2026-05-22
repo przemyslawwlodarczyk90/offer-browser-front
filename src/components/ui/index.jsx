@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 // ── Badge (poziom) ────────────────────────────────────────────────
 const BADGE_STYLE = {
   trainee: { bg: 'rgba(100,116,139,0.18)', border: 'rgba(100,116,139,0.35)', color: '#94a3b8' },
@@ -78,6 +80,94 @@ export function EmptyState({ icon = '◌', title, description, action }) {
         .empty-title { font-family: var(--font-display); font-size: 1rem; font-weight: 700; color: var(--text-1); }
         .empty-desc  { font-size: 0.82rem; color: var(--text-2); max-width: 380px; line-height: 1.6; }
         .empty-action{ margin-top: 12px; }
+      `}</style>
+    </>
+  )
+}
+
+// ── ConfirmModal ──────────────────────────────────────────────────
+export function ConfirmModal({ title, description, onConfirm, onClose }) {
+  const [input, setInput] = useState('')
+  const valid = input === 'POTWIERDZ'
+
+  const submit = () => { if (valid) { onConfirm(); onClose() } }
+
+  return (
+    <>
+      <div
+        className="conf-backdrop"
+        onClick={onClose}
+        onKeyDown={e => { if (e.key === 'Escape') onClose() }}
+      >
+        <div
+          className="conf-modal animate-fade-in"
+          onClick={e => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="conf-icon">⚠</div>
+          <h3 className="conf-title">{title}</h3>
+          {description && <p className="conf-desc">{description}</p>}
+          <p className="conf-hint">Wpisz <code>POTWIERDZ</code> aby kontynuować:</p>
+          <input
+            className="conf-input"
+            autoFocus
+            placeholder="POTWIERDZ"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && submit()}
+          />
+          <div className="conf-foot">
+            <button className="conf-btn conf-btn--cancel" onClick={onClose}>Anuluj</button>
+            <button className="conf-btn conf-btn--delete" disabled={!valid} onClick={submit}>
+              Usuń
+            </button>
+          </div>
+        </div>
+      </div>
+      <style>{`
+        .conf-backdrop {
+          position: fixed; inset: 0; z-index: 300;
+          background: rgba(0,0,0,.72); backdrop-filter: blur(4px);
+          display: flex; align-items: center; justify-content: center; padding: 16px;
+        }
+        .conf-modal {
+          background: var(--bg-1); border: 1px solid rgba(239,68,68,.4);
+          border-radius: var(--radius-xl); width: 100%; max-width: 400px;
+          padding: 28px 24px; display: flex; flex-direction: column; gap: 12px;
+          box-shadow: 0 0 40px rgba(239,68,68,.15);
+        }
+        .conf-icon { font-size: 2rem; text-align: center; }
+        .conf-title {
+          font-family: var(--font-display); font-size: 1rem; font-weight: 800;
+          color: var(--text-0); text-align: center;
+        }
+        .conf-desc { font-size: 0.79rem; color: var(--text-2); text-align: center; line-height: 1.6; }
+        .conf-hint { font-size: 0.75rem; color: var(--text-2); }
+        .conf-hint code { color: var(--red); font-family: var(--font-mono); }
+        .conf-input {
+          width: 100%; padding: 9px 12px; box-sizing: border-box;
+          background: var(--bg-2); border: 1px solid var(--border-1);
+          border-radius: var(--radius-md); font-family: var(--font-mono);
+          font-size: 0.85rem; color: var(--text-0); outline: none;
+          transition: border-color .15s;
+        }
+        .conf-input:focus { border-color: var(--red); box-shadow: 0 0 0 2px rgba(239,68,68,.15); }
+        .conf-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+        .conf-btn {
+          padding: 8px 18px; border-radius: var(--radius-md); border: 1px solid;
+          font-family: var(--font-mono); font-size: 0.8rem; font-weight: 600;
+          cursor: pointer; transition: background .15s, filter .15s;
+        }
+        .conf-btn--cancel {
+          background: transparent; color: var(--text-1); border-color: var(--border-1);
+        }
+        .conf-btn--cancel:hover { background: var(--bg-2); }
+        .conf-btn--delete {
+          background: var(--red); color: #fff; border-color: var(--red);
+        }
+        .conf-btn--delete:disabled { opacity: .35; cursor: not-allowed; }
+        .conf-btn--delete:not(:disabled):hover { filter: brightness(1.12); }
       `}</style>
     </>
   )

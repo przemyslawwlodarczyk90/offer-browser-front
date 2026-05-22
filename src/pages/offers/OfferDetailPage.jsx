@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { offersApi, userOffersApi } from '@/api/services'
+import { offersApi, userOffersApi, adminApi } from '@/api/services'
 import { useApi, useTitle } from '@/hooks'
 import { useAuthStore, toast } from '@/store'
-import { Badge } from '@/components/ui'
+import { Badge, ConfirmModal } from '@/components/ui'
 import { formatDate, formatDateTime, normalizeLevel, formatSalary } from '@/utils'
 
 // ─────────────────────────────────────────────────────────────────
@@ -12,14 +12,22 @@ export default function OfferDetailPage() {
   const navigate = useNavigate()
   const user     = useAuthStore((s) => s.user)
 
+  const isAdmin = user?.role === 'ADMIN'
+
   const { data: offer, loading, error } =
     useApi(() => offersApi.getById(id), { immediate: true, deps: [id] })
+
+  const { data: markers } = useApi(
+    useCallback(() => adminApi.getOfferMarkers(id), [id]),
+    { immediate: isAdmin }
+  )
 
   useTitle(offer?.title ?? 'Szczegóły oferty')
 
   const [applying,       setApplying]       = useState(false)
   const [marking,        setMarking]        = useState(false)
   const [markingUseless, setMarkingUseless] = useState(false)
+  const [showDelete,     setShowDelete]     = useState(false)
 
   const handleApply = async () => {
     if (!user?.id) { toast.warn('Brak ID użytkownika w sesji'); return }
@@ -44,6 +52,16 @@ export default function OfferDetailPage() {
       toast.error(err?.message ?? 'Błąd oznaczania duplikatu')
     } finally {
       setMarking(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    try {
+      await offersApi.delete(id)
+      toast.info('Oferta usunięta')
+      navigate(-1)
+    } catch (err) {
+      toast.error(err?.message ?? 'Błąd usuwania oferty')
     }
   }
 
@@ -104,7 +122,7 @@ export default function OfferDetailPage() {
           >
             {markingUseless ? '…' : '🗑 Nieprzydatne'}
           </button>
-          {user?.role === 'ADMIN' && (
+          {isAdmin && (
             <button
               className="btn btn--danger btn--sm"
               onClick={handleMarkDup}
@@ -112,6 +130,15 @@ export default function OfferDetailPage() {
               title={isDup ? 'Już oznaczono' : 'Oznacz jako duplikat'}
             >
               {marking ? '…' : '⊗ Duplikat'}
+            </button>
+          )}
+          {isAdmin && (
+            <button
+              className="btn btn--danger btn--sm detail-delete-btn"
+              onClick={() => setShowDelete(true)}
+              title="Usuń ofertę z bazy"
+            >
+              ✕ Usuń ofertę
             </button>
           )}
           <button className="btn btn--primary btn--sm" onClick={handleApply} disabled={applying}>
@@ -164,6 +191,45 @@ export default function OfferDetailPage() {
             )}
           </div>
         </section>
+      )}
+
+      {/* ── Admin: kto odrzucił ── */}
+      {isAdmin && (
+        <section className="detail-section detail-markers-section">
+          <h2 className="detail-section-h">
+            ⚑ Odrzucenia przez użytkowników
+            {markers?.length > 0 && (
+              <span className="detail-markers-count">{markers.length}</span>
+            )}
+          </h2>
+          {!markers || markers.length === 0 ? (
+            <p className="detail-markers-empty">Żaden użytkownik nie oznaczył tej oferty jako nieprzydatną.</p>
+          ) : (
+            <ul className="detail-markers-list">
+              {markers.map(m => (
+                <li key={m.userId} className="detail-marker-row">
+                  <span className="detail-marker-user">
+                    <span className="detail-marker-dot">◉</span>
+                    {m.username}
+                    <span className="detail-marker-email">({m.email})</span>
+                  </span>
+                  <time className="detail-marker-date">
+                    {m.uselessAt ? formatDateTime(m.uselessAt) : '—'}
+                  </time>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
+      {showDelete && (
+        <ConfirmModal
+          title="Usuń ofertę z bazy danych?"
+          description={`"${offer.title}" zostanie trwale usunięta. Tej operacji nie można cofnąć.`}
+          onConfirm={handleDelete}
+          onClose={() => setShowDelete(false)}
+        />
       )}
 
       <DetailStyles />
@@ -279,6 +345,51 @@ function DetailStyles() {
         font-size: 0.83rem; color: var(--text-1); line-height: 1.7;
         background: var(--bg-1); border: 1px solid var(--border-1);
         border-radius: var(--radius-md); padding: 14px 16px;
+      }
+
+      /* Admin delete btn */
+      .detail-delete-btn {
+        background: rgba(239,68,68,.08) !important;
+        border-color: rgba(239,68,68,.5) !important;
+      }
+      .detail-delete-btn:hover:not(:disabled) {
+        background: rgba(239,68,68,.18) !important;
+      }
+
+      /* Markers */
+      .detail-markers-section { border-top: 1px solid rgba(239,68,68,.2); }
+      .detail-markers-section .detail-section-h {
+        color: var(--red); border-bottom-color: rgba(239,68,68,.2);
+        display: flex; align-items: center; gap: 8px;
+      }
+      .detail-markers-count {
+        font-family: var(--font-mono); font-size: 0.65rem; font-weight: 700;
+        background: rgba(239,68,68,.15); color: var(--red);
+        border-radius: 100px; padding: 1px 7px;
+      }
+      .detail-markers-empty {
+        font-size: 0.79rem; color: var(--text-3); font-style: italic;
+      }
+      .detail-markers-list {
+        list-style: none; margin: 0; padding: 0;
+        display: flex; flex-direction: column; gap: 6px;
+      }
+      .detail-marker-row {
+        display: flex; justify-content: space-between; align-items: center;
+        gap: 12px; padding: 8px 12px;
+        background: var(--bg-2); border: 1px solid var(--border-1);
+        border-left: 2px solid rgba(239,68,68,.4);
+        border-radius: var(--radius-md);
+      }
+      .detail-marker-user {
+        display: flex; align-items: center; gap: 6px;
+        font-family: var(--font-mono); font-size: 0.79rem; color: var(--text-0);
+      }
+      .detail-marker-dot { color: var(--red); font-size: 0.65rem; }
+      .detail-marker-email { font-size: 0.68rem; color: var(--text-3); }
+      .detail-marker-date {
+        font-family: var(--font-mono); font-size: 0.67rem; color: var(--text-3);
+        white-space: nowrap; flex-shrink: 0;
       }
 
       /* Error */

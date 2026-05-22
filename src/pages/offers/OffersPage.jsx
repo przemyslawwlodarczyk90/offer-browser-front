@@ -2,7 +2,8 @@ import { useState, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { offersApi } from '@/api/services'
 import { useApi, useDebounce, useTitle } from '@/hooks'
-import { Badge, EmptyState, PageHeader } from '@/components/ui'
+import { useAuthStore, toast } from '@/store'
+import { Badge, EmptyState, PageHeader, ConfirmModal } from '@/components/ui'
 import { formatDate, normalizeLevel, truncate, sortByDate, formatSalary } from '@/utils'
 
 const SORT_OPTS = [
@@ -11,8 +12,7 @@ const SORT_OPTS = [
 ]
 
 const LEVELS = ['Wszystkie', 'Trainee', 'Junior', 'Mid', 'Senior', 'Expert']
-
-// Backend może zwracać różne pola daty — sprawdzamy po kolei
+const STATUS_OPTS = ['Wszystkie', 'Duplikaty', 'Normalne']
 const DATE_KEYS = ['createdAt', 'fetchedAt', 'updatedAt']
 
 function getDate(offer) {
@@ -24,19 +24,33 @@ function getDate(offer) {
 export default function OffersPage() {
   useTitle('Oferty pracy')
   const navigate = useNavigate()
+  const user    = useAuthStore(s => s.user)
+  const isAdmin = user?.role === 'ADMIN'
 
   const { data: raw, loading, error, execute: reload } =
     useApi(offersApi.getAll, { immediate: true })
 
-  const [search, setSearch] = useState('')
-  const [sort,   setSort]   = useState('newest')
-  const [level,  setLevel]  = useState('Wszystkie')
+  const [search,   setSearch]   = useState('')
+  const [sort,     setSort]     = useState('newest')
+  const [level,    setLevel]    = useState('Wszystkie')
+  const [status,   setStatus]   = useState('Wszystkie')
+  const [selected, setSelected] = useState(new Set())
+  const [confirm,  setConfirm]  = useState(null)
+  const [deleting, setDeleting] = useState(false)
   const q = useDebounce(search, 280)
+
+  const dupCount = useMemo(() =>
+    (raw ?? []).filter(o => o.isDuplicate ?? o.duplicate).length,
+  [raw])
 
   const offers = useMemo(() => {
     let list = raw ?? []
     if (level !== 'Wszystkie')
       list = list.filter(o => normalizeLevel(o.level) === level)
+    if (isAdmin && status === 'Duplikaty')
+      list = list.filter(o => o.isDuplicate ?? o.duplicate)
+    if (isAdmin && status === 'Normalne')
+      list = list.filter(o => !(o.isDuplicate ?? o.duplicate))
     if (q.trim()) {
       const lq = q.toLowerCase()
       list = list.filter(o =>
@@ -45,20 +59,56 @@ export default function OffersPage() {
         o.city?.toLowerCase().includes(lq)
       )
     }
-    // Wybierz klucz daty który faktycznie istnieje w danych
     const dateKey = DATE_KEYS.find(k => list.some(o => o[k])) ?? 'createdAt'
     return sortByDate(list, dateKey, sort === 'newest' ? 'desc' : 'asc')
-  }, [raw, level, q, sort])
+  }, [raw, level, q, sort, isAdmin, status])
 
   const goToDetail = useCallback((id) => navigate(`/offers/${id}`), [navigate])
 
-  const isFiltered = q.trim() !== '' || level !== 'Wszystkie'
+  const toggleSelect = useCallback((id, e) => {
+    e.stopPropagation()
+    setSelected(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }, [])
+
+  const selectAll = () => setSelected(new Set(offers.map(o => o.id)))
+  const clearAll  = () => setSelected(new Set())
+
+  const handleBulkDelete = () => {
+    const count = selected.size
+    setConfirm({
+      title: `Usuń ${count} ofert${count === 1 ? 'ę' : count < 5 ? 'y' : ''}?`,
+      description: 'Operacja nieodwracalna — oferty znikną z bazy danych na stałe.',
+      onConfirm: async () => {
+        setDeleting(true)
+        let ok = 0, fail = 0
+        for (const id of selected) {
+          try { await offersApi.delete(id); ok++ }
+          catch { fail++ }
+        }
+        setDeleting(false)
+        setSelected(new Set())
+        reload()
+        if (fail === 0) toast.success(`Usunięto ${ok} ofert`)
+        else toast.warn(`Usunięto ${ok}, błąd przy ${fail}`)
+      },
+    })
+  }
+
+  const isFiltered = q.trim() !== '' || level !== 'Wszystkie' || (isAdmin && status !== 'Wszystkie')
 
   return (
     <div className="offers-page">
       <PageHeader
         title="Oferty pracy"
-        subtitle={raw ? `${raw.length} ofert w bazie` : ''}
+        subtitle={
+          raw
+            ? `${raw.length} ofert w bazie${isAdmin && dupCount > 0 ? ` · ${dupCount} duplikat${dupCount === 1 ? '' : 'ów'}` : ''}`
+            : ''
+        }
         actions={
           <button className="btn btn--secondary btn--sm" onClick={reload} disabled={loading}>
             ↻ Odśwież
@@ -99,12 +149,57 @@ export default function OffersPage() {
         ))}
       </div>
 
-      {/* ── Licznik ── */}
+      {/* ── Status filter (admin only) ── */}
+      {isAdmin && (
+        <div className="of-levels of-status-row">
+          {STATUS_OPTS.map(s => (
+            <button
+              key={s}
+              className={`of-pill${status === s ? ' of-pill--on' : ''}${s === 'Duplikaty' && status !== s ? ' of-pill--dup-idle' : ''}`}
+              onClick={() => setStatus(s)}
+            >
+              {s === 'Duplikaty' ? `⚑ ${s}` : s}
+              {s === 'Duplikaty' && dupCount > 0 && (
+                <span className="of-pill-badge">{dupCount}</span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* ── Licznik + admin bulk actions ── */}
       {!loading && !error && raw && (
-        <p className="of-count">
-          <strong>{offers.length}</strong>
-          {isFiltered ? ` z ${raw.length}` : ''} ofert
-        </p>
+        <div className="of-count-row">
+          <p className="of-count">
+            <strong>{offers.length}</strong>
+            {isFiltered ? ` z ${raw.length}` : ''} ofert
+          </p>
+          {isAdmin && (
+            <div className="of-bulk-bar">
+              {selected.size > 0 ? (
+                <>
+                  <span className="of-sel-label">{selected.size} zaznaczonych</span>
+                  <button className="of-bulk-btn" onClick={clearAll}>Odznacz</button>
+                  <button
+                    className="of-bulk-btn of-bulk-btn--danger"
+                    onClick={handleBulkDelete}
+                    disabled={deleting}
+                  >
+                    {deleting ? '…' : `⊗ Usuń (${selected.size})`}
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="of-bulk-btn"
+                  onClick={selectAll}
+                  disabled={offers.length === 0}
+                >
+                  Zaznacz wszystkie
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       {/* ── Skeleton ── */}
@@ -136,7 +231,7 @@ export default function OffersPage() {
             : 'Baza jest pusta — zaimportuj dane przez moduł Import.'}
           action={isFiltered
             ? <button className="btn btn--ghost btn--sm"
-                onClick={() => { setSearch(''); setLevel('Wszystkie') }}>
+                onClick={() => { setSearch(''); setLevel('Wszystkie'); setStatus('Wszystkie') }}>
                 Wyczyść filtry
               </button>
             : null
@@ -151,11 +246,23 @@ export default function OffersPage() {
             <OfferCard
               key={offer.id}
               offer={offer}
+              isAdmin={isAdmin}
+              selected={selected.has(offer.id)}
+              onSelect={e => toggleSelect(offer.id, e)}
               onClick={() => goToDetail(offer.id)}
               style={{ animationDelay: `${Math.min(i * 28, 400)}ms` }}
             />
           ))}
         </div>
+      )}
+
+      {confirm && (
+        <ConfirmModal
+          title={confirm.title}
+          description={confirm.description}
+          onConfirm={confirm.onConfirm}
+          onClose={() => setConfirm(null)}
+        />
       )}
 
       <OffersStyles />
@@ -166,51 +273,57 @@ export default function OffersPage() {
 // ─────────────────────────────────────────────────────────────────
 // Karta oferty
 // ─────────────────────────────────────────────────────────────────
-function OfferCard({ offer, onClick, style }) {
-  const level  = normalizeLevel(offer.level)
-  // Backend zwraca salaryRange (snake_case → camelCase przez Spring)
-  const salary = formatSalary(offer.salaryRange ?? offer.salary)
-  const date   = getDate(offer)
-  // Backend: is_duplicate → isDuplicate (Spring camelCase), company → company
-  const isDup  = offer.isDuplicate ?? offer.duplicate ?? false
-  // Backend zwraca "company" nie "companyName"
+function OfferCard({ offer, isAdmin, selected, onSelect, onClick, style }) {
+  const level   = normalizeLevel(offer.level)
+  const salary  = formatSalary(offer.salaryRange ?? offer.salary)
+  const date    = getDate(offer)
+  const isDup   = offer.isDuplicate ?? offer.duplicate ?? false
   const company = offer.companyName ?? offer.company ?? '—'
+
+  let cardClass = 'of-card animate-fade-in'
+  if (isDup && isAdmin) cardClass += ' of-card--admin-dup'
+  else if (isDup)       cardClass += ' of-card--dup'
+  if (selected)         cardClass += ' of-card--selected'
 
   return (
     <article
-      className={`of-card animate-fade-in${isDup ? ' of-card--dup' : ''}`}
+      className={cardClass}
       onClick={onClick}
       style={style}
       tabIndex={0}
       role="button"
       onKeyDown={e => e.key === 'Enter' && onClick()}
     >
-      {/* badge + duplikat */}
+      {isAdmin && (
+        <span
+          className={`of-check${selected ? ' of-check--on' : ''}`}
+          onClick={onSelect}
+          role="checkbox"
+          aria-checked={selected}
+          tabIndex={0}
+          onKeyDown={e => e.key === ' ' && onSelect(e)}
+        >
+          {selected ? '▣' : '□'}
+        </span>
+      )}
+
       <div className="of-card-top">
         <Badge level={level} />
         {isDup && <span className="of-dup">DUPLIKAT</span>}
       </div>
 
-      {/* tytuł */}
       <h3 className="of-card-title">{truncate(offer.title, 72)}</h3>
 
-      {/* firma */}
       <p className="of-card-company">
         <span aria-hidden="true" style={{ color: 'var(--text-3)', fontSize: '.72rem' }}>◉</span>
         {company}
       </p>
 
-      {/* lokalizacja + wynagrodzenie */}
       <div className="of-chips">
-        {offer.city && (
-          <span className="of-chip">◎ {offer.city}</span>
-        )}
-        {salary && (
-          <span className="of-chip of-chip--salary">₿ {salary}</span>
-        )}
+        {offer.city && <span className="of-chip">◎ {offer.city}</span>}
+        {salary     && <span className="of-chip of-chip--salary">₿ {salary}</span>}
       </div>
 
-      {/* stopka */}
       <div className="of-card-foot">
         <time className="of-card-date">{formatDate(date)}</time>
         <span className="of-card-arrow" aria-hidden="true">→</span>
@@ -263,8 +376,10 @@ function OffersStyles() {
       .of-select:focus { border-color: var(--accent); }
 
       /* Level pills */
-      .of-levels { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 16px; }
+      .of-levels { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 10px; }
+      .of-status-row { margin-bottom: 16px; }
       .of-pill {
+        display: inline-flex; align-items: center; gap: 5px;
         padding: 4px 13px; border-radius: 100px;
         border: 1px solid var(--border-1); background: var(--bg-2);
         color: var(--text-2); font-family: var(--font-mono); font-size: 0.7rem;
@@ -273,10 +388,42 @@ function OffersStyles() {
       }
       .of-pill:hover { border-color: var(--accent); color: var(--accent); }
       .of-pill--on   { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 700; }
+      .of-pill--dup-idle { color: var(--red); border-color: rgba(239,68,68,.3); }
+      .of-pill--dup-idle:hover { border-color: var(--red); background: rgba(239,68,68,.07); }
+      .of-pill-badge {
+        font-size: 0.6rem; font-weight: 700;
+        background: rgba(239,68,68,.2); color: var(--red);
+        border-radius: 100px; padding: 1px 5px;
+        min-width: 16px; text-align: center;
+      }
+      .of-pill--on .of-pill-badge { background: rgba(0,0,0,.2); color: #000; }
 
-      /* Licznik */
-      .of-count { font-size: 0.73rem; color: var(--text-2); margin-bottom: 14px; }
+      /* Licznik + bulk bar */
+      .of-count-row {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 8px; margin-bottom: 14px; flex-wrap: wrap;
+      }
+      .of-count { font-size: 0.73rem; color: var(--text-2); }
       .of-count strong { color: var(--text-0); }
+      .of-bulk-bar { display: flex; align-items: center; gap: 8px; }
+      .of-sel-label {
+        font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-2);
+      }
+      .of-bulk-btn {
+        padding: 5px 12px; border-radius: var(--radius-md); border: 1px solid var(--border-1);
+        background: var(--bg-2); color: var(--text-1);
+        font-family: var(--font-mono); font-size: 0.72rem; cursor: pointer;
+        transition: background .15s, border-color .15s, color .15s;
+      }
+      .of-bulk-btn:hover:not(:disabled) { background: var(--bg-3); color: var(--text-0); }
+      .of-bulk-btn:disabled { opacity: .45; cursor: not-allowed; }
+      .of-bulk-btn--danger {
+        color: var(--red); border-color: rgba(239,68,68,.35);
+        background: rgba(239,68,68,.05);
+      }
+      .of-bulk-btn--danger:hover:not(:disabled) {
+        background: rgba(239,68,68,.12); border-color: var(--red);
+      }
 
       /* Siatka */
       .of-grid {
@@ -287,6 +434,7 @@ function OffersStyles() {
 
       /* Karta */
       .of-card {
+        position: relative;
         display: flex; flex-direction: column; gap: 7px;
         background: var(--bg-1); border: 1px solid var(--border-1);
         border-radius: var(--radius-lg); padding: 1.05rem 1.1rem;
@@ -301,6 +449,32 @@ function OffersStyles() {
       }
       .of-card--dup { opacity: .5; }
       .of-card--dup:hover { opacity: .72; }
+      .of-card--admin-dup {
+        border-color: rgba(239,68,68,.5);
+        background: rgba(239,68,68,.04);
+        box-shadow: 0 0 0 1px rgba(239,68,68,.15);
+      }
+      .of-card--admin-dup:hover,
+      .of-card--admin-dup:focus-visible {
+        border-color: var(--red);
+        box-shadow: 0 4px 16px rgba(239,68,68,.25);
+        transform: translateY(-2px);
+      }
+      .of-card--selected {
+        border-color: var(--accent) !important;
+        box-shadow: 0 0 0 2px var(--accent-glow) !important;
+      }
+
+      /* Checkbox */
+      .of-check {
+        position: absolute; top: 10px; right: 10px;
+        font-size: 0.9rem; color: var(--text-3);
+        cursor: pointer; z-index: 2; line-height: 1;
+        transition: color .15s;
+        user-select: none;
+      }
+      .of-check:hover { color: var(--accent); }
+      .of-check--on   { color: var(--accent); }
 
       .of-card-top {
         display: flex; align-items: center;
