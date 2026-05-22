@@ -298,10 +298,9 @@ function OfferCard({ offer, isAdmin, isUseless, selected, onSelect, onClick, sty
   const company = offer.companyName ?? offer.company ?? '—'
 
   let cardClass = 'of-card animate-fade-in'
-  if (isAdmin && isDup)     cardClass += ' of-card--admin-dup'
-  else if (isAdmin && isUseless) cardClass += ' of-card--admin-useless'
-  else if (isDup)           cardClass += ' of-card--dup'
-  if (selected)             cardClass += ' of-card--selected'
+  if (isAdmin && (isDup || isUseless)) cardClass += ' of-card--admin-dup'
+  else if (isDup)                      cardClass += ' of-card--dup'
+  if (selected)                        cardClass += ' of-card--selected'
 
   return (
     <article
@@ -329,7 +328,7 @@ function OfferCard({ offer, isAdmin, isUseless, selected, onSelect, onClick, sty
         <Badge level={level} />
         <div style={{ display: 'flex', gap: 4 }}>
           {isDup     && <span className="of-dup">DUPLIKAT</span>}
-          {isUseless && <span className="of-dup of-dup--useless">NIEPRZYDATNA</span>}
+          {isUseless && <span className="of-dup">NIEPRZYDATNA</span>}
         </div>
       </div>
 
@@ -480,21 +479,6 @@ function OffersStyles() {
         border-color: var(--red);
         box-shadow: 0 4px 16px rgba(239,68,68,.25);
         transform: translateY(-2px);
-      }
-      .of-card--admin-useless {
-        border-color: rgba(245,158,11,.5);
-        background: rgba(245,158,11,.04);
-        box-shadow: 0 0 0 1px rgba(245,158,11,.15);
-      }
-      .of-card--admin-useless:hover,
-      .of-card--admin-useless:focus-visible {
-        border-color: #f59e0b;
-        box-shadow: 0 4px 16px rgba(245,158,11,.25);
-        transform: translateY(-2px);
-      }
-      .of-dup--useless {
-        color: #f59e0b;
-        border-color: rgba(245,158,11,.4);
       }
       .of-card--selected {
         border-color: var(--accent) !important;
