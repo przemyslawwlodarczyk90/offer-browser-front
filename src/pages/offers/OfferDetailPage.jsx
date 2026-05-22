@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { offersApi, userOffersApi, adminApi } from '@/api/services'
 import { useApi, useTitle } from '@/hooks'
@@ -17,10 +17,13 @@ export default function OfferDetailPage() {
   const { data: offer, loading, error } =
     useApi(() => offersApi.getById(id), { immediate: true, deps: [id] })
 
-  const { data: markers } = useApi(
-    useCallback(() => adminApi.getOfferMarkers(id), [id]),
-    { immediate: isAdmin }
-  )
+  const [markers, setMarkers] = useState(null)
+  useEffect(() => {
+    if (!isAdmin) return
+    adminApi.getOfferMarkers(id)
+      .then(res => setMarkers(res.data ?? res))
+      .catch(() => setMarkers([]))
+  }, [isAdmin, id])
 
   useTitle(offer?.title ?? 'Szczegóły oferty')
 
@@ -349,11 +352,12 @@ function DetailStyles() {
 
       /* Admin delete btn */
       .detail-delete-btn {
-        background: rgba(239,68,68,.08) !important;
-        border-color: rgba(239,68,68,.5) !important;
+        background: var(--red) !important;
+        border-color: var(--red) !important;
+        color: #fff !important;
       }
       .detail-delete-btn:hover:not(:disabled) {
-        background: rgba(239,68,68,.18) !important;
+        filter: brightness(1.12) !important;
       }
 
       /* Markers */

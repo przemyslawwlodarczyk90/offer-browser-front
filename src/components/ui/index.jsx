@@ -120,7 +120,7 @@ export function ConfirmModal({ title, description, onConfirm, onClose }) {
           <div className="conf-foot">
             <button className="conf-btn conf-btn--cancel" onClick={onClose}>Anuluj</button>
             <button className="conf-btn conf-btn--delete" disabled={!valid} onClick={submit}>
-              Usuń
+              Potwierdź
             </button>
           </div>
         </div>
