@@ -59,3 +59,13 @@ export const importApi = {
   importFromJson:  (data) => api.post('/python-script/import', data),
   importFromUrl:   (url)  => api.post('/python-script/import-from-url', null, { params: { offerUrl: url } }),
 }
+
+// ── Admin ─────────────────────────────────────────────────────────
+export const adminApi = {
+  getUsers: () => api.get('/admin/users'),
+}
+
+// ── Notifications ─────────────────────────────────────────────────
+export const notificationsApi = {
+  sendDailyEmails: () => api.get('/notifications/daily-unapplied-offers'),
+}

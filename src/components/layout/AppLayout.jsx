@@ -23,6 +23,7 @@ export default function AppLayout() {
   const { user, logout }               = useAuthStore()
   const { sidebarOpen, toggleSidebar } = useUIStore()
   const navigate = useNavigate()
+  const isAdmin  = user?.role === 'ADMIN'
 
   const handleLogout = () => { logout(); navigate('/login') }
 
@@ -51,6 +52,15 @@ export default function AppLayout() {
                 {sidebarOpen && <span className="nav-label">{label}</span>}
               </NavLink>
             ))}
+            {isAdmin && (
+              <NavLink
+                to="/admin"
+                className={({ isActive }) => `nav-item nav-item--admin${isActive ? ' nav-item--active' : ''}`}
+              >
+                <span className="nav-icon">⬡</span>
+                {sidebarOpen && <span className="nav-label">Admin</span>}
+              </NavLink>
+            )}
           </nav>
 
           <div className="sb-footer">
@@ -140,6 +150,12 @@ export default function AppLayout() {
           padding: 1px 6px; border-radius: 100px;
           flex-shrink: 0; line-height: 1.5;
         }
+
+        /* Admin nav item */
+        .nav-item--admin { color: var(--yellow); }
+        .nav-item--admin:hover { color: var(--yellow); background: rgba(245,158,11,0.08); }
+        .nav-item--admin.nav-item--active { color: var(--yellow) !important; background: rgba(245,158,11,0.12) !important; }
+        .nav-item--admin.nav-item--active::before { background: var(--yellow); }
 
         /* Footer */
         .sb-footer { border-top: 1px solid var(--border-1); padding: 8px 0; }

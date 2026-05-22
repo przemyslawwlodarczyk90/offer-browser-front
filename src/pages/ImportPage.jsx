@@ -147,7 +147,7 @@ function JsonInstructionModal({ onClose }) {
           padding: 7px 10px; border-radius: var(--radius-sm);
           background: var(--bg-2); border: 1px solid var(--border-1);
         }
-        .modal-field--req { border-color: rgba(0,212,212,.3); background: rgba(0,212,212,.04); }
+        .modal-field--req { border-color: rgba(99,102,241,.3); background: rgba(99,102,241,.04); }
         .modal-field code {
           font-family: var(--font-mono); font-size: 0.76rem;
           color: var(--accent); white-space: nowrap; flex-shrink: 0; min-width: 110px;
@@ -223,78 +223,6 @@ function StatusLog({ log, error }) {
         )}
       </div>
     </div>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────
-// Sekcja: Uruchom skrypt
-// ─────────────────────────────────────────────────────────────────
-function ScriptSection() {
-  const [status,  setStatus]  = useState(null) // null|'pending'|'started'|'error'
-  const [log,     setLog]     = useState(null)
-  const [error,   setError]   = useState(null)
-
-  const handleRun = async () => {
-    setStatus('pending')
-    setLog(null)
-    setError(null)
-    try {
-      const res = await importApi.runScript()
-      setLog(parseLog(res.data))
-      setStatus('started')
-      toast.success('Skrypt uruchomiony w tle')
-    } catch (err) {
-      setError(err)
-      setStatus('error')
-      toast.error(err?.message ?? 'Błąd uruchamiania skryptu')
-    }
-  }
-
-  const isPending = status === 'pending'
-
-  return (
-    <section className="imp-section">
-      <div className="imp-section-head">
-        <span className="imp-section-icon">⊕</span>
-        <div>
-          <h2 className="imp-section-title">Uruchom skrypt Python</h2>
-          <p className="imp-section-sub">
-            Ręczne wywołanie skryptu importującego — normalnie uruchamia się automatycznie przez cron.
-          </p>
-        </div>
-      </div>
-
-      <div className="imp-section-body">
-
-        <div className="imp-notice">
-          <span className="imp-notice-icon">◷</span>
-          <span>Skrypt może działać <strong>kilka minut</strong> — operacja odbywa się w tle i nie blokuje aplikacji.</span>
-        </div>
-
-        <div className="imp-btn-wrap">
-          <button className="imp-run-btn" onClick={handleRun} disabled={isPending}>
-            {isPending
-              ? <><span className="imp-spin" />Uruchamianie…</>
-              : '▶ Uruchom skrypt'}
-          </button>
-          {isPending && (
-            <span className="imp-btn-hint">Trwa pobieranie danych, proszę czekać…</span>
-          )}
-        </div>
-
-        {status === 'started' && (
-          <div className="imp-bg-info">
-            <span className="imp-spin imp-spin--sm" />
-            <span>
-              Skrypt działa w tle — import ofert nastąpi automatycznie po jego zakończeniu.
-              Możesz korzystać z aplikacji normalnie.
-            </span>
-          </div>
-        )}
-
-        <StatusLog log={null} error={status === 'error' ? error : null} />
-      </div>
-    </section>
   )
 }
 
@@ -552,7 +480,6 @@ export default function ImportPage() {
       />
 
       <div className="imp-grid">
-        <ScriptSection />
         <JsonSection />
         <UrlSection />
       </div>
@@ -599,47 +526,6 @@ function ImportStyles() {
       .imp-section-body {
         padding: 20px; display: flex; flex-direction: column; gap: 14px;
       }
-
-      /* ── Przycisk skryptu ── */
-      .imp-run-btn {
-        display: inline-flex; align-items: center; gap: 8px;
-        padding: 10px 20px; background: var(--accent); color: #000;
-        border: 1px solid var(--accent); border-radius: var(--radius-md);
-        font-family: var(--font-mono); font-size: 0.82rem; font-weight: 700;
-        cursor: pointer; transition: background .15s, box-shadow .15s;
-        align-self: flex-start;
-      }
-      .imp-run-btn:hover:not(:disabled) {
-        background: var(--accent-dim); box-shadow: var(--shadow-accent);
-      }
-      .imp-run-btn:disabled { opacity: .5; cursor: not-allowed; }
-
-      .imp-notice {
-        display: flex; align-items: flex-start; gap: 8px;
-        padding: 10px 13px;
-        background: rgba(250,204,21,0.06); border: 1px solid rgba(250,204,21,0.25);
-        border-radius: var(--radius-md);
-        font-size: 0.76rem; color: var(--text-2); line-height: 1.5;
-      }
-      .imp-notice-icon { color: var(--yellow); flex-shrink: 0; font-size: 0.85rem; margin-top: 1px; }
-      .imp-notice strong { color: var(--text-1); }
-
-      .imp-btn-wrap { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-      .imp-btn-hint {
-        font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-3);
-        animation: pulse 1.8s ease-in-out infinite;
-      }
-      @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
-
-      .imp-bg-info {
-        display: flex; align-items: flex-start; gap: 10px;
-        padding: 12px 14px;
-        background: rgba(0,212,212,0.06); border: 1px solid rgba(0,212,212,0.25);
-        border-radius: var(--radius-md);
-        font-family: var(--font-mono); font-size: 0.76rem; color: var(--text-1);
-        line-height: 1.5;
-      }
-      .imp-bg-info .imp-spin { flex-shrink: 0; margin-top: 2px; color: var(--cyan); }
 
       /* ── Spinner ── */
       .imp-spin {
@@ -688,18 +574,18 @@ function ImportStyles() {
       .imp-info-btn {
         display: inline-flex; align-items: center; gap: 7px;
         padding: 9px 16px;
-        background: rgba(0,212,212,.1);
+        background: rgba(56,189,248,.1);
         color: var(--cyan);
-        border: 1px solid rgba(0,212,212,.45);
+        border: 1px solid rgba(56,189,248,.45);
         border-radius: var(--radius-md);
         font-family: var(--font-mono); font-size: 0.78rem; font-weight: 700;
         cursor: pointer; white-space: nowrap;
         transition: background .15s, border-color .15s, box-shadow .15s;
       }
       .imp-info-btn:hover {
-        background: rgba(0,212,212,.18);
+        background: rgba(56,189,248,.18);
         border-color: var(--cyan);
-        box-shadow: 0 0 0 2px rgba(0,212,212,.15);
+        box-shadow: 0 0 0 2px rgba(56,189,248,.15);
       }
 
       /* ── Przycisk akcji ── */

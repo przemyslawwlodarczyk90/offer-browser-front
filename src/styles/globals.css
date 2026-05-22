@@ -5,37 +5,37 @@
 }
 
 :root {
-  /* Tło */
-  --bg-0: #0a0a0f;
-  --bg-1: #0f0f17;
-  --bg-2: #16161f;
-  --bg-3: #1e1e2a;
-  --bg-4: #252535;
+  /* Tło — głęboki granat (nieco jaśniejszy dla lepszego kontrastu tekstu) */
+  --bg-0: #0d1117;
+  --bg-1: #161b22;
+  --bg-2: #1c2128;
+  --bg-3: #22272e;
+  --bg-4: #2d333b;
 
-  /* Akcenty */
-  --accent:            #f5a623;
-  --accent-dim:        #c47d0e;
-  --accent-glow:       rgba(245, 166, 35, 0.15);
-  --accent-glow-strong:rgba(245, 166, 35, 0.30);
+  /* Akcent główny — indigo (pasuje do faviconu) */
+  --accent:             #6366f1;
+  --accent-dim:         #4f46e5;
+  --accent-glow:        rgba(99, 102, 241, 0.15);
+  --accent-glow-strong: rgba(99, 102, 241, 0.30);
 
   /* Kolory semantyczne */
-  --cyan:   #00d4d4;
-  --cyan-dim: #007f7f;
-  --cyan-glow: rgba(0, 212, 212, 0.12);
-  --green:  #22c55e;
-  --red:    #ef4444;
-  --yellow: #eab308;
+  --cyan:      #38bdf8;
+  --cyan-dim:  #0284c7;
+  --cyan-glow: rgba(56, 189, 248, 0.12);
+  --green:     #10b981;
+  --red:       #f43f5e;
+  --yellow:    #f59e0b;
 
-  /* Tekst */
-  --text-0: #f5f5f5;
-  --text-1: #b0b0c8;
-  --text-2: #70708a;
-  --text-3: #40405a;
+  /* Tekst — rozjaśnione dla czytelności na ciemnym tle */
+  --text-0: #e6edf3;
+  --text-1: #9baec2;
+  --text-2: #7d96aa;   /* było #64748b — za ciemne, teraz czytelne */
+  --text-3: #566a7f;   /* było #334155 — praktycznie niewidoczne, teraz OK */
 
   /* Ramki */
-  --border-0: rgba(245, 166, 35, 0.20);
-  --border-1: rgba(255, 255, 255, 0.06);
-  --border-2: rgba(255, 255, 255, 0.03);
+  --border-0: rgba(99, 102, 241, 0.28);
+  --border-1: rgba(148, 163, 184, 0.09);
+  --border-2: rgba(148, 163, 184, 0.04);
 
   /* Fonty */
   --font-display: 'Syne', sans-serif;
@@ -56,11 +56,11 @@
   --t-slow: 350ms ease;
 
   /* Cienie */
-  --shadow-sm:     0 1px 3px rgba(0,0,0,0.4);
-  --shadow-md:     0 4px 16px rgba(0,0,0,0.5);
-  --shadow-lg:     0 8px 32px rgba(0,0,0,0.6);
-  --shadow-accent: 0 0 20px rgba(245,166,35,0.2);
-  --shadow-cyan:   0 0 20px rgba(0,212,212,0.15);
+  --shadow-sm:     0 1px 3px rgba(0,0,0,0.5);
+  --shadow-md:     0 4px 16px rgba(0,0,0,0.55);
+  --shadow-lg:     0 8px 32px rgba(0,0,0,0.65);
+  --shadow-accent: 0 0 24px rgba(99, 102, 241, 0.30);
+  --shadow-cyan:   0 0 20px rgba(56, 189, 248, 0.18);
 
   /* Layout */
   --sidebar-width: 240px;

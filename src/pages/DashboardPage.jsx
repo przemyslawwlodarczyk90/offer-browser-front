@@ -51,8 +51,8 @@ function QuickAction({ icon, label, desc, to, accent, navigate }) {
 function MiniOfferCard({ offer, onClick }) {
   const level = normalizeLevel(offer.level)
   const LEVEL_COLOR = {
-    Trainee: '#64748b', Junior: '#22c55e', Mid: '#f5a623',
-    Senior: '#00d4d4', Expert: '#a855f7',
+    Trainee: '#64748b', Junior: '#10b981', Mid: '#38bdf8',
+    Senior: '#818cf8', Expert: '#f59e0b',
   }
   const color = LEVEL_COLOR[level] ?? 'var(--text-3)'
 
@@ -273,7 +273,7 @@ function DashboardStyles() {
         border-radius: var(--radius-lg); padding: 24px 28px;
         margin-bottom: 20px;
         background-image: radial-gradient(ellipse at top right,
-          rgba(245,166,35,0.08) 0%, transparent 60%);
+          rgba(99,102,241,0.08) 0%, transparent 60%);
       }
       .db-hero-title {
         font-family: var(--font-display); font-size: 1.5rem;
@@ -285,7 +285,7 @@ function DashboardStyles() {
       }
       .db-hero-sub strong { color: var(--text-0); }
       .db-hero-btn {
-        padding: 10px 20px; background: var(--accent); color: #000;
+        padding: 10px 20px; background: var(--accent); color: #fff;
         border: none; border-radius: var(--radius-md);
         font-family: var(--font-mono); font-size: 0.8rem; font-weight: 700;
         cursor: pointer; white-space: nowrap;
@@ -373,11 +373,11 @@ function DashboardStyles() {
       }
       .db-offer-meta {
         font-family: var(--font-mono); font-size: 0.67rem;
-        color: var(--text-3); margin-top: 1px;
+        color: var(--text-2); margin-top: 1px;
       }
       .db-offer-date {
         font-family: var(--font-mono); font-size: 0.64rem;
-        color: var(--text-3); white-space: nowrap; flex-shrink: 0;
+        color: var(--text-2); white-space: nowrap; flex-shrink: 0;
       }
 
       /* ── Szybka akcja ── */
@@ -396,9 +396,9 @@ function DashboardStyles() {
         font-size: 0.82rem; color: var(--text-0); display: block;
       }
       .db-action-desc {
-        font-size: 0.7rem; color: var(--text-3);
+        font-size: 0.7rem; color: var(--text-2);
       }
-      .db-action-arrow { color: var(--text-3); font-size: 0.8rem; }
+      .db-action-arrow { color: var(--text-2); font-size: 0.8rem; }
 
       /* ── Pasek postępu ── */
       .db-progress-wrap {
@@ -428,12 +428,12 @@ function DashboardStyles() {
       }
       .db-progress-sub {
         font-family: var(--font-mono); font-size: 0.65rem;
-        color: var(--text-3); margin-top: 6px;
+        color: var(--text-2); margin-top: 6px;
       }
 
       /* ── Empty / Skeleton ── */
       .db-empty {
-        font-size: 0.78rem; color: var(--text-3); padding: 24px 18px;
+        font-size: 0.78rem; color: var(--text-2); padding: 24px 18px;
         text-align: center;
       }
       .db-skel {

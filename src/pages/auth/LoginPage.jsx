@@ -67,6 +67,7 @@ export default function LoginPage() {
         id:       userId,
         username: data?.username ?? form.username,
         email:    data?.email    ?? null,
+        role:     data?.role     ?? 'USER',
       })
 
       // Tymczasowy debug — usuń po weryfikacji

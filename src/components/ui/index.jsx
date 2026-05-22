@@ -1,11 +1,11 @@
 // ── Badge (poziom) ────────────────────────────────────────────────
 const BADGE_STYLE = {
-  trainee: { bg: 'rgba(100,116,139,0.2)', border: 'rgba(100,116,139,0.4)', color: '#94a3b8' },
-  junior:  { bg: 'rgba(34,197,94,0.12)',  border: 'rgba(34,197,94,0.35)',  color: '#22c55e' },
-  mid:     { bg: 'rgba(245,166,35,0.12)', border: 'rgba(245,166,35,0.35)', color: '#f5a623' },
-  senior:  { bg: 'rgba(0,212,212,0.10)',  border: 'rgba(0,212,212,0.35)',  color: '#00d4d4' },
-  expert:  { bg: 'rgba(168,85,247,0.12)', border: 'rgba(168,85,247,0.35)', color: '#a855f7' },
-  default: { bg: 'rgba(255,255,255,0.06)', border: 'rgba(255,255,255,0.12)', color: '#70708a' },
+  trainee: { bg: 'rgba(100,116,139,0.18)', border: 'rgba(100,116,139,0.35)', color: '#94a3b8' },
+  junior:  { bg: 'rgba(16,185,129,0.13)',  border: 'rgba(16,185,129,0.35)',  color: '#10b981' },
+  mid:     { bg: 'rgba(56,189,248,0.12)',  border: 'rgba(56,189,248,0.35)',  color: '#38bdf8' },
+  senior:  { bg: 'rgba(99,102,241,0.14)',  border: 'rgba(99,102,241,0.40)',  color: '#818cf8' },
+  expert:  { bg: 'rgba(245,158,11,0.13)',  border: 'rgba(245,158,11,0.38)',  color: '#f59e0b' },
+  default: { bg: 'rgba(148,163,184,0.08)', border: 'rgba(148,163,184,0.15)', color: '#64748b' },
 }
 
 export function Badge({ level }) {
@@ -109,7 +109,7 @@ export function Button({ children, variant = 'primary', size = 'md', disabled, l
         .btn--sm { padding: 6px 12px;  font-size: 0.74rem; }
         .btn--md { padding: 10px 18px; font-size: 0.82rem; }
         .btn--primary {
-          background: var(--accent); color: #000; border-color: var(--accent);
+          background: var(--accent); color: #fff; border-color: var(--accent);
         }
         .btn--primary:hover:not(:disabled) {
           background: var(--accent-dim); box-shadow: var(--shadow-accent);

@@ -55,7 +55,7 @@ export function AuthStyles() {
 
       .auth-btn {
         margin-top: 4px; width: 100%; padding: 11px;
-        background: var(--accent); color: #000;
+        background: var(--accent); color: #fff;
         border: none; border-radius: var(--radius-md);
         font-family: var(--font-mono); font-size: 0.84rem; font-weight: 700;
         cursor: pointer; letter-spacing: .03em;
@@ -67,7 +67,7 @@ export function AuthStyles() {
       .auth-btn:disabled { opacity: .5; cursor: not-allowed; }
       .auth-btn-spin {
         display: inline-block; width: 15px; height: 15px;
-        border: 2px solid transparent; border-top-color: #000;
+        border: 2px solid transparent; border-top-color: #fff;
         border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle;
       }
 

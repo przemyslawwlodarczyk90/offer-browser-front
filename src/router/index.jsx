@@ -21,6 +21,7 @@ const ImportPage    = lazy(() => import('@/pages/ImportPage'))
 const NotesPage     = lazy(() => import('@/pages/NotesPage'))
 const StatsPage     = lazy(() => import('@/pages/StatsPage'))
 const ProfilePage   = lazy(() => import('@/pages/ProfilePage'))
+const AdminPage     = lazy(() => import('@/pages/AdminPage'))
 
 // ── Guards ────────────────────────────────────────────────────────
 export function PrivateRoute({ children }) {
@@ -32,6 +33,13 @@ export function PrivateRoute({ children }) {
 export function GuestRoute({ children }) {
   const ok = useAuthStore((s) => s.isAuthenticated)
   if (ok) return <Navigate to="/dashboard" replace />
+  return children
+}
+
+export function AdminRoute({ children }) {
+  const { isAuthenticated, user } = useAuthStore()
+  if (!isAuthenticated) return <Navigate to="/login" replace />
+  if (user?.role !== 'ADMIN') return <Navigate to="/dashboard" replace />
   return children
 }
 
@@ -60,6 +68,7 @@ export const router = createBrowserRouter([
       { path: '/notes',      element: <S><NotesPage /></S> },
       { path: '/stats',      element: <S><StatsPage /></S> },
       { path: '/profile',    element: <S><ProfilePage /></S> },
+      { path: '/admin',      element: <AdminRoute><S><AdminPage /></S></AdminRoute> },
     ],
   },
   { path: '*', element: <Navigate to="/dashboard" replace /> },
