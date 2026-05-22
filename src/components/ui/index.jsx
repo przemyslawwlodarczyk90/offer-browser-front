@@ -88,7 +88,7 @@ export function EmptyState({ icon = '◌', title, description, action }) {
 // ── ConfirmModal ──────────────────────────────────────────────────
 export function ConfirmModal({ title, description, onConfirm, onClose }) {
   const [input, setInput] = useState('')
-  const valid = input === 'POTWIERDZ'
+  const valid = input === 'POTWIERDŹ'
 
   const submit = () => { if (valid) { onConfirm(); onClose() } }
 
@@ -108,11 +108,11 @@ export function ConfirmModal({ title, description, onConfirm, onClose }) {
           <div className="conf-icon">⚠</div>
           <h3 className="conf-title">{title}</h3>
           {description && <p className="conf-desc">{description}</p>}
-          <p className="conf-hint">Wpisz <code>POTWIERDZ</code> aby kontynuować:</p>
+          <p className="conf-hint">Wpisz <code>POTWIERDŹ</code> aby kontynuować:</p>
           <input
             className="conf-input"
             autoFocus
-            placeholder="POTWIERDZ"
+            placeholder="POTWIERDŹ"
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && submit()}
@@ -120,7 +120,7 @@ export function ConfirmModal({ title, description, onConfirm, onClose }) {
           <div className="conf-foot">
             <button className="conf-btn conf-btn--cancel" onClick={onClose}>Anuluj</button>
             <button className="conf-btn conf-btn--delete" disabled={!valid} onClick={submit}>
-              Potwierdź
+              Usuń
             </button>
           </div>
         </div>
