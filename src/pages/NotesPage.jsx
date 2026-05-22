@@ -4,6 +4,7 @@
 // ╚══════════════════════════════════════════════╝
 
 import { useState, useMemo, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import { notesApi } from '@/api/services'
 import { useApi, useTitle, useDebounce } from '@/hooks'
 import { useAuthStore, toast } from '@/store'
@@ -136,6 +137,8 @@ function NewNoteModal({ userId, onClose, onCreated }) {
 // Karta notatki
 // ─────────────────────────────────────────────────────────────────
 function NoteCard({ note, style }) {
+  const isInternal = !!note.offerId
+
   return (
     <article className="n-card animate-fade-in" style={style}>
       <div className="n-card-head">
@@ -143,7 +146,13 @@ function NoteCard({ note, style }) {
           <span className="n-card-dot">◉</span>
           {note.companyName ?? '—'}
         </span>
-        <time className="n-card-date">{formatDateTime(note.appliedAt)}</time>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {isInternal
+            ? <span className="n-badge n-badge--int">wewnętrzna</span>
+            : <span className="n-badge n-badge--ext">zewnętrzna</span>
+          }
+          <time className="n-card-date">{formatDateTime(note.appliedAt)}</time>
+        </div>
       </div>
 
       {note.offerUrl && (
@@ -158,8 +167,10 @@ function NoteCard({ note, style }) {
         </a>
       )}
 
-      {note.offerId && (
-        <p className="n-card-offerid">ID oferty: {note.offerId}</p>
+      {isInternal && (
+        <Link to={`/offers/${note.offerId}`} className="n-card-offer-link">
+          ◈ Pokaż szczegóły oferty →
+        </Link>
       )}
     </article>
   )
@@ -598,6 +609,22 @@ function NotesStyles() {
         transition: opacity .15s;
       }
       .n-card-link:hover { opacity: .75; }
+      .n-card-offer-link {
+        display: inline-flex; align-items: center; gap: 4px;
+        font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-2);
+        text-decoration: none; border: 1px solid var(--border-1);
+        border-radius: var(--radius-sm); padding: 3px 8px;
+        background: var(--bg-2); transition: color .15s, border-color .15s, background .15s;
+        align-self: flex-start;
+      }
+      .n-card-offer-link:hover {
+        color: var(--accent); border-color: var(--accent);
+        background: var(--accent-glow);
+      }
+      .n-badge--int {
+        color: var(--accent); border-color: var(--accent-glow);
+        background: var(--accent-glow);
+      }
       .n-card-content-wrap { display: flex; flex-direction: column; gap: 4px; }
       .n-card-content {
         font-size: 0.79rem; color: var(--text-1); line-height: 1.6; margin: 0;

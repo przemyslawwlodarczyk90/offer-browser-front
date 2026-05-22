@@ -65,15 +65,25 @@ export default function OfferDetailPage() {
   if (loading) return <DetailSkeleton />
 
   /* ── Błąd ── */
-  if (error || !offer) return (
-    <div className="detail-page animate-fade-in">
-      <button className="detail-back" onClick={() => navigate(-1)}>← Wróć</button>
-      <div className="detail-err">
-        <span style={{ fontSize: '2.2rem' }}>✕</span>
-        <p>{error?.message ?? 'Nie znaleziono oferty.'}</p>
+  if (error || !offer) {
+    const is404 = error?.response?.status === 404
+    return (
+      <div className="detail-page animate-fade-in">
+        <button className="detail-back" onClick={() => navigate(-1)}>← Wróć</button>
+        <div className="detail-err">
+          <span style={{ fontSize: '2.2rem' }}>{is404 ? '◌' : '✕'}</span>
+          {is404 ? (
+            <>
+              <p style={{ fontWeight: 700, color: 'var(--text-0)' }}>Oferta została usunięta z bazy danych</p>
+              <p style={{ fontSize: '0.8rem' }}>Twoja notatka aplikacyjna pozostaje zapisana.</p>
+            </>
+          ) : (
+            <p>{error?.message ?? 'Nie znaleziono oferty.'}</p>
+          )}
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   const level   = normalizeLevel(offer.level)
   const salary  = formatSalary(offer.salaryRange ?? offer.salary)
@@ -94,14 +104,16 @@ export default function OfferDetailPage() {
           >
             {markingUseless ? '…' : '🗑 Nieprzydatne'}
           </button>
-          <button
-            className="btn btn--danger btn--sm"
-            onClick={handleMarkDup}
-            disabled={marking || isDup}
-            title={isDup ? 'Już oznaczono' : 'Oznacz jako duplikat'}
-          >
-            {marking ? '…' : '⊗ Duplikat'}
-          </button>
+          {user?.role === 'ADMIN' && (
+            <button
+              className="btn btn--danger btn--sm"
+              onClick={handleMarkDup}
+              disabled={marking || isDup}
+              title={isDup ? 'Już oznaczono' : 'Oznacz jako duplikat'}
+            >
+              {marking ? '…' : '⊗ Duplikat'}
+            </button>
+          )}
           <button className="btn btn--primary btn--sm" onClick={handleApply} disabled={applying}>
             {applying ? '…' : '✓ Aplikuj'}
           </button>
